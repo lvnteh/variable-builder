@@ -869,6 +869,26 @@ pre#json-output {
   transition: color 0.1s;
 }
 .select-toggle:hover { color: var(--accent); }
+
+/* ─── Library home ─────────────────────────────────────────────────────── */
+.library { padding: 24px 32px; max-width: 1100px; margin: 0 auto; }
+.library-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.library-title { font-size: 20px; font-weight: 600; margin: 0; }
+.library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.set-card { border: 1px solid var(--border); border-radius: 10px; padding: 16px; cursor: pointer; background: var(--surface); transition: border-color .15s, transform .05s; }
+.set-card:hover { border-color: var(--accent); }
+.set-card:active { transform: scale(.995); }
+.set-card h3 { margin: 0 0 6px; font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.set-card .set-meta { font-size: 12px; color: var(--muted); display: flex; gap: 10px; align-items: center; }
+.set-card .set-actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+.set-card .set-actions button { font-size: 12px; padding: 4px 8px; }
+.set-card .set-presence { color: var(--accent); font-weight: 600; }
+.crumb, .crumb-name { background: none; border: none; color: var(--muted); cursor: pointer; font: inherit; padding: 0 4px; }
+.crumb-name { color: var(--text); font-weight: 600; }
+.crumb:hover, .crumb-name:hover { color: var(--accent); }
+.crumb-sep { color: var(--muted); }
+.library-trash { margin-top: 28px; font-size: 13px; }
+.library-trash .trash-item { display: flex; gap: 10px; align-items: center; padding: 4px 0; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -880,6 +900,9 @@ pre#json-output {
     <span class="brand-sep">/</span>
     <span class="brand-sub">variable-builder</span>
   </div>
+  <button class="crumb" id="crumb-back" onclick="goHome()" style="display:none" title="Back to library">← Library</button>
+  <span class="crumb-sep" id="crumb-sep" style="display:none">/</span>
+  <button class="crumb-name" id="crumb-name" style="display:none" title="Rename this set" onclick="renameSetPrompt()"></button>
   <div class="header-right">
     <div class="presence" id="presence" title="People here now">
       <div class="presence-cluster" id="presence-cluster" style="display:none"></div>
@@ -890,6 +913,20 @@ pre#json-output {
     <span class="count-tag" id="count-tag">0 variables</span>
   </div>
 </header>
+
+<!-- LIBRARY HOME (shown when no set is open) -->
+<section class="library" id="library-view" style="display:none">
+  <div class="library-head">
+    <h1 class="library-title">Variable sets</h1>
+    <button class="btn-primary" id="new-set-btn" onclick="createSetPrompt()">+ New set</button>
+  </div>
+  <div class="library-grid" id="library-grid"></div>
+  <div class="empty-state" id="library-empty" style="display:none">
+    <div class="empty-icon">[ ]</div>
+    <p>No sets yet.<br>Create your first set to start adding variables.</p>
+  </div>
+  <div class="library-trash" id="library-trash" style="display:none"></div>
+</section>
 
 <!-- FILTER BAR -->
 <div class="filterbar" id="filterbar" style="display:none">
@@ -980,7 +1017,7 @@ pre#json-output {
 </div>
 
 <!-- BOTTOM BAR: Add + document actions -->
-<div class="toolbar bottombar">
+<div class="toolbar bottombar" id="bottombar">
   <span class="toolbar-label">+ Add</span>
   <div class="type-btns">
     <button class="type-btn" onclick="addVar('string')">
@@ -1023,8 +1060,22 @@ let localRev = null;               // last server revision we rendered
 const saveTimers = {};             // uid -> debounce timer
 const SAVE_DEBOUNCE = 500;
 const POLL_MS = 4000;
-const CACHE_KEY = 'bc-variable-builder-cache';   // offline fallback ONLY
 const V = window.VBValidate;
+
+// ─── Set / library state ──────────────────────────────────────────────────────
+// currentSetId: null = library home; a UUID = editing that set. Only one set is
+// open at a time, so vars/localRev/saveTimers are reset on every set switch.
+let currentSetId = null;
+let libRev = null;                 // last library revision we rendered (home view)
+let sets = [];                     // library index entries (home view)
+const CURRENT_SET_KEY = 'bc-variable-builder-current-set';
+
+// Per-set storage keys: the base cache/view keys get a `-<setId>` suffix so each
+// set keeps its own offline cache and sort/filter state. Home view uses neither.
+const CACHE_BASE = 'bc-variable-builder-cache';   // offline fallback ONLY
+const VIEW_BASE  = 'bc-variable-builder-view';
+function cacheKey() { return currentSetId ? `${CACHE_BASE}-${currentSetId}` : CACHE_BASE; }
+function viewKey()  { return currentSetId ? `${VIEW_BASE}-${currentSetId}`  : VIEW_BASE; }
 
 // ─── Identity (who am I, for attribution + presence) ──────────────────────────
 // A stable clientId (this browser) + a chosen display name. Both persist in
@@ -1087,6 +1138,7 @@ async function api(method, path, body) {
   // ASCII-safe on the wire (server decodeURIComponent's it back).
   if (me.name) headers['X-VB-Name'] = encodeURIComponent(me.name);
   headers['X-VB-Editing'] = editingUid();
+  if (currentSetId) headers['X-VB-Set'] = currentSetId;
   const res = await fetch(path, {
     method,
     headers,
@@ -1294,6 +1346,7 @@ function dataOf(v) {
 
 // ─── Add variable ─────────────────────────────────────────────────────────────
 async function addVar(type) {
+  if (currentSetId == null) return;
   const raw = {
     id: '',
     display_name: '',
@@ -1304,7 +1357,8 @@ async function addVar(type) {
     type_config: { options: [] },
   };
   setSync('saving', 'saving…');
-  const res = await api('POST', '/api/variables', raw);
+  const res = await api('POST', `/api/sets/${currentSetId}/variables`, raw);
+  if (res.status === 404) { onSetDeleted(); return; }
   if (!res.ok) { setSync('offline', 'save failed'); return; }
 
   const v = toRecord(res.json.variable);
@@ -1586,18 +1640,21 @@ function isBusy(v, focusedUid) {
 }
 
 async function saveVar(v) {
+  if (currentSetId == null) return;
   delete saveTimers[v.uid];
   v._saving = true;
   setSync('saving', 'saving…');
   let res;
   try {
-    res = await api('PUT', `/api/variables/${v.uid}`, { version: v.version, data: dataOf(v) });
+    res = await api('PUT', `/api/sets/${currentSetId}/variables/${v.uid}`, { version: v.version, data: dataOf(v) });
   } finally {
     v._saving = false;
   }
 
   if (res.status === 404) {
-    // Deleted by someone else while we were editing — drop it locally.
+    // Distinguish "the SET is gone" from "this ROW is gone".
+    if (res.json && res.json.error === 'set_not_found') { onSetDeleted(); return; }
+    // Row deleted by someone else while we were editing — drop it locally.
     vars = vars.filter(x => x.uid !== v.uid);
     const row = document.getElementById(`row-${v.uid}`);
     if (row) row.remove();
@@ -1649,11 +1706,13 @@ async function saveVar(v) {
 }
 
 async function deleteVar(v) {
+  if (currentSetId == null) return;
   const label = (v.display_name || v.id || '').trim();
   const named = label ? `“${label}”` : 'this variable';
   if (!confirm(`Remove ${named} from the SHARED list? This affects everyone.`)) return;
   clearTimeout(saveTimers[v.uid]);
-  const res = await api('DELETE', `/api/variables/${v.uid}`);
+  const res = await api('DELETE', `/api/sets/${currentSetId}/variables/${v.uid}`);
+  if (res.status === 404 && res.json && res.json.error === 'set_not_found') { onSetDeleted(); return; }
   if (!res.ok && res.status !== 404) { setSync('offline', 'delete failed'); return; }
   vars = vars.filter(x => x.uid !== v.uid);
   const row = document.getElementById(`row-${v.uid}`);
@@ -1675,7 +1734,7 @@ function flashRow(uid) {
 
 // Offline cache — last-known-good only; never wins over a live server fetch.
 function cacheOffline() {
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(buildJson())); } catch {}
+  try { localStorage.setItem(cacheKey(), JSON.stringify(buildJson())); } catch {}
 }
 
 // Which variable's row currently holds focus (or null).
@@ -1687,7 +1746,9 @@ function focusedRowUid() {
 
 // ─── Initial load + polling sync ─────────────────────────────────────────────────
 async function loadFromServer() {
-  const res = await api('GET', '/api/variables');
+  if (currentSetId == null) return loadLibrary();
+  const res = await api('GET', `/api/sets/${currentSetId}/variables`);
+  if (res.status === 404) { onSetDeleted(); return false; }
   if (!res.ok) { setSync('offline', 'offline'); return false; }
   vars = res.json.variables.map(toRecord);
   localRev = res.json.revision;
@@ -1701,7 +1762,6 @@ async function loadFromServer() {
 // This is a pure VIEW layer over `vars`: it reorders and hides existing row DOM
 // nodes (never rebuilds them), so it composes safely with the live-reconcile
 // engine — a background poll or your own typing is never disrupted by a sort.
-const VIEW_KEY = 'bc-variable-builder-view';
 const view = {
   sortKey: 'created',   // created | display_name | id | type | default_value | category | is_overridable
   sortDir: 'asc',       // asc | desc  (for 'created', asc = oldest first)
@@ -1714,13 +1774,13 @@ const view = {
 
 function loadView() {
   try {
-    const saved = JSON.parse(localStorage.getItem(VIEW_KEY) || '{}');
+    const saved = JSON.parse(localStorage.getItem(viewKey()) || '{}');
     Object.assign(view, saved);
     if (!Array.isArray(view.types)) view.types = [];
   } catch {}
 }
 function saveView() {
-  try { localStorage.setItem(VIEW_KEY, JSON.stringify(view)); } catch {}
+  try { localStorage.setItem(viewKey(), JSON.stringify(view)); } catch {}
 }
 
 // Does a variable pass the active filters? (The focused row is always kept
@@ -1976,6 +2036,129 @@ function reorderRows() {
   applyView();
 }
 
+// ─── Library home view ─────────────────────────────────────────────────────
+function renderLibrary() {
+  const grid = document.getElementById('library-grid');
+  const empty = document.getElementById('library-empty');
+  grid.innerHTML = '';
+  if (!sets.length) { empty.style.display = ''; }
+  else {
+    empty.style.display = 'none';
+    sets.forEach(s => {
+      const card = document.createElement('div');
+      card.className = 'set-card';
+      card.onclick = (e) => { if (!e.target.closest('.set-actions')) openSet(s.setId); };
+      const who = s.updated_by ? `edited by ${esc(s.updated_by)}` : '';
+      const pres = s.presence ? `<span class="set-presence">● ${s.presence} here</span>` : '';
+      const safeName = esc(s.name).replace(/'/g, "\\'");
+      card.innerHTML =
+        `<h3>${esc(s.name)}</h3>` +
+        `<div class="set-meta"><span>${s.variable_count} vars</span>${pres}</div>` +
+        `<div class="set-meta" style="margin-top:4px">${who}</div>` +
+        `<div class="set-actions">` +
+          `<button class="btn-tiny" onclick="openSet('${s.setId}')">Open</button>` +
+          `<button class="btn-tiny" onclick="duplicateSet('${s.setId}')">Duplicate</button>` +
+          `<button class="btn-tiny" onclick="renameSetPromptFor('${s.setId}',${s.version})">Rename</button>` +
+          `<button class="btn-tiny" onclick="deleteSet('${s.setId}','${safeName}')">Delete</button>` +
+        `</div>`;
+      grid.appendChild(card);
+    });
+  }
+}
+
+// Show/hide editor chrome vs the library home. One source of truth for "what
+// view am I in": currentSetId (null = home).
+function applyViewMode() {
+  const home = currentSetId == null;
+  document.getElementById('library-view').style.display = home ? '' : 'none';
+  document.getElementById('filterbar').style.display = home ? 'none' : '';
+  document.querySelector('.workspace').style.display = home ? 'none' : '';
+  document.getElementById('bottombar').style.display = home ? 'none' : '';
+  ['crumb-back','crumb-sep','crumb-name'].forEach(id =>
+    document.getElementById(id).style.display = home ? 'none' : '');
+  document.getElementById('count-tag').style.display = home ? 'none' : '';
+  if (!home) {
+    const entry = sets.find(s => s.setId === currentSetId);
+    document.getElementById('crumb-name').textContent = entry ? entry.name : 'Set';
+  }
+}
+
+async function goHome() {
+  currentSetId = null;
+  try { localStorage.removeItem(CURRENT_SET_KEY); } catch {}
+  applyViewMode();
+  await loadLibrary();
+}
+
+async function openSet(setId) {
+  currentSetId = setId;
+  try { localStorage.setItem(CURRENT_SET_KEY, setId); } catch {}
+  // Reset per-set editor state; only one set is open at a time.
+  vars = []; localRev = null;
+  Object.keys(saveTimers).forEach(k => { clearTimeout(saveTimers[k]); delete saveTimers[k]; });
+  loadView();                          // load THIS set's saved sort/filter
+  applyViewMode();
+  await loadFromServer();
+}
+
+// The open set was deleted by someone else (any 404 from a set route). Stop
+// auto-saving, stash in-flight work to a draft, warn, and return to the library.
+let setDeletedHandled = false;   // fire once per deletion
+function onSetDeleted() {
+  if (setDeletedHandled) return;
+  setDeletedHandled = true;
+  Object.keys(saveTimers).forEach(k => { clearTimeout(saveTimers[k]); delete saveTimers[k]; });
+  try {
+    const draft = buildJson();
+    if (draft.length) localStorage.setItem(`draft_${currentSetId}`, JSON.stringify(draft));
+  } catch {}
+  alert('This set was deleted by someone else. Your in-progress changes were saved locally — use Import to recover them into a new set.');
+  currentSetId = null;
+  try { localStorage.removeItem(CURRENT_SET_KEY); } catch {}
+  applyViewMode();
+  loadLibrary().then(() => { setDeletedHandled = false; });
+}
+
+async function loadLibrary() {
+  const res = await api('GET', '/api/library');
+  if (!res.ok) { setSync('offline', 'offline'); return false; }
+  sets = res.json.sets;
+  libRev = res.json.revision;
+  renderLibrary();
+  setSync('synced', 'synced');
+  return true;
+}
+
+// ─── Set-action handlers (cards + breadcrumb) ──────────────────────────────
+async function createSetPrompt() {
+  const name = prompt('Name your new set:', 'New set');
+  if (name == null) return;
+  const res = await api('POST', '/api/library', { name: name.trim() || 'Untitled set' });
+  if (res.ok && res.json.set) { await loadLibrary(); openSet(res.json.set.setId); }
+}
+async function duplicateSet(setId) {
+  const res = await api('POST', `/api/library/${setId}/duplicate`, {});
+  if (res.ok) await loadLibrary();
+}
+async function renameSetPromptFor(setId, version) {
+  const entry = sets.find(s => s.setId === setId);
+  const name = prompt('Rename set:', entry ? entry.name : '');
+  if (name == null) return;
+  const res = await api('PUT', `/api/library/${setId}`, { name: name.trim(), version });
+  if (res.status === 409) { await loadLibrary(); alert('That set was renamed by someone else — try again.'); return; }
+  await loadLibrary();
+  if (setId === currentSetId) applyViewMode();   // refresh breadcrumb
+}
+function renameSetPrompt() {                       // from the editor breadcrumb
+  const entry = sets.find(s => s.setId === currentSetId);
+  if (entry) renameSetPromptFor(currentSetId, entry.version);
+}
+async function deleteSet(setId, name) {
+  if (!confirm(`Delete "${name}"? It moves to trash and can be restored.`)) return;
+  const res = await api('DELETE', `/api/library/${setId}`);
+  if (res.ok) { if (setId === currentSetId) { currentSetId = null; applyViewMode(); } await loadLibrary(); }
+}
+
 function renderAll() {
   const container = document.getElementById('rows-container');
   container.innerHTML = '';
@@ -1988,7 +2171,15 @@ function renderAll() {
 
 // Poll for others' changes; incremental apply is focus-safe so we always apply.
 async function poll() {
-  const res = await api('GET', '/api/variables');
+  if (currentSetId == null) {
+    const res = await api('GET', '/api/library');
+    if (!res.ok) { setSync('offline', 'offline'); return; }
+    if (res.json.revision !== libRev) { sets = res.json.sets; libRev = res.json.revision; renderLibrary(); }
+    setSync('synced', 'synced');
+    return;
+  }
+  const res = await api('GET', `/api/sets/${currentSetId}/variables`);
+  if (res.status === 404) { onSetDeleted(); return; }      // set deleted by someone else
   if (!res.ok) { setSync('offline', 'offline'); return; }
   // Presence is applied EVERY poll, independent of the data revision — it must
   // update "who's editing" even when the variable list itself hasn't changed.
@@ -2087,9 +2278,11 @@ function highlight(json) {
 function showHead() { renderChrome(); }
 
 async function clearAll() {
+  if (currentSetId == null) return;
   if (!vars.length) return;
   if (!confirm(`Remove all ${vars.length} variable(s) from the SHARED list? This affects everyone.`)) return;
-  const res = await api('DELETE', '/api/variables');
+  const res = await api('DELETE', `/api/sets/${currentSetId}/variables`);
+  if (res.status === 404) { onSetDeleted(); return; }
   if (!res.ok) { setSync('offline', 'clear failed'); return; }
   vars = [];
   document.getElementById('rows-container').innerHTML = '';
@@ -2136,6 +2329,7 @@ function triggerImport() {
 // Import APPENDS to the shared list (server-side), so it never nukes others'
 // work. The server coerces every item and makes ids unique across the list.
 function importJson(event) {
+  if (currentSetId == null) return;
   const file = event.target.files[0];
   if (!file) return;
   const reader = new FileReader();
@@ -2154,7 +2348,8 @@ function importJson(event) {
     if (!confirm(`Import ${list.length} variable(s) into the shared list? They will be ADDED to the existing ${vars.length}.`)) return;
 
     setSync('saving', 'importing…');
-    const res = await api('POST', '/api/variables/bulk', { variables: list });
+    const res = await api('POST', `/api/sets/${currentSetId}/variables/bulk`, { variables: list });
+    if (res.status === 404) { onSetDeleted(); return; }
     if (!res.ok) { setSync('offline', 'import failed'); alert('Import failed.'); return; }
     applyServerList(res.json.variables, res.json.revision);
     setSync('synced', `imported ${res.json.added}`);
@@ -2183,16 +2378,16 @@ async function init() {
 
   loadView();
   wireViewControls();
-  const ok = await loadFromServer();
-  if (!ok) {
-    // Offline fallback: show last-known-good cache read-only-ish until server returns.
-    try {
-      const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || '[]');
-      if (Array.isArray(cached) && cached.length) {
-        vars = cached.map((c, i) => toRecord(Object.assign({ uid: -1 - i, version: 0 }, c)));
-        renderAll();
-      }
-    } catch {}
+
+  // Restore the last-open set if it still exists; otherwise land on the library.
+  let restore = null;
+  try { restore = localStorage.getItem(CURRENT_SET_KEY); } catch {}
+  await loadLibrary();                       // always know the set list first
+  if (restore && sets.some(s => s.setId === restore)) {
+    await openSet(restore);
+  } else {
+    currentSetId = null;
+    applyViewMode();
   }
   ensureName();                       // prompt for a name on first visit
   setInterval(poll, POLL_MS);

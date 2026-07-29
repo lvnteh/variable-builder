@@ -7,12 +7,17 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "smoke": "node test/smoke.js"
+    "smoke": "node test/run-smoke.js",
+    "test:unit": "node --test test/store.test.js",
+    "test:browser": "node test/browser.mjs"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
     "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "playwright": "1.62.0"
   }
 }
