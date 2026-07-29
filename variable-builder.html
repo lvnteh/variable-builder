@@ -1,0 +1,2216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Variable Builder — Brand Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=72:wght@300;400;700&display=swap" rel="stylesheet">
+<!-- SAP 72 font with fallback chain matching Fiori UI5 -->
+<style>
+@font-face {
+  font-family: '72';
+  src: url('https://ui5.sap.com/resources/sap/ui/core/themes/sap_horizon/fonts/72-Regular.woff2') format('woff2'),
+       url('https://ui5.sap.com/resources/sap/ui/core/themes/sap_horizon/fonts/72-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: '72';
+  src: url('https://ui5.sap.com/resources/sap/ui/core/themes/sap_horizon/fonts/72-Bold.woff2') format('woff2'),
+       url('https://ui5.sap.com/resources/sap/ui/core/themes/sap_horizon/fonts/72-Bold.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: '72';
+  src: url('https://ui5.sap.com/resources/sap/ui/core/themes/sap_horizon/fonts/72-Light.woff2') format('woff2'),
+       url('https://ui5.sap.com/resources/sap/ui/core/themes/sap_horizon/fonts/72-Light.woff') format('woff');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: '72Mono';
+  src: url('https://ui5.sap.com/resources/sap/ui/core/themes/sap_horizon/fonts/72Mono-Regular.woff2') format('woff2'),
+       url('https://ui5.sap.com/resources/sap/ui/core/themes/sap_horizon/fonts/72Mono-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+</style>
+<style>
+:root {
+  --bg:        #f5f6f7;
+  --surface:   #ffffff;
+  --border:    #e5e5e5;
+  --border-hi: #c2c2c2;
+  --accent:    #0070f2;
+  --accent-bg: #e8f3ff;
+  --text:      #1d2d3e;
+  --sub:       #556b82;
+  --muted:     #8496a9;
+  --danger:    #bb0000;
+  --success:   #188918;
+  --row-hover: #f0f4f9;
+  /* SAP 72 — Fiori UI5 typeface */
+  --sans:      '72', '72full', -apple-system, 'Segoe UI', sans-serif;
+  --mono:      '72Mono', 'Lucida Console', monospace;
+  /* Fiori type scale (rem-based, root 16px) */
+  --fs-xs:     0.75rem;    /* 12px — labels, badges */
+  --fs-sm:     0.875rem;   /* 14px — body, inputs */
+  --fs-base:   1rem;       /* 16px — emphasis */
+  --fw-regular: 400;
+  --fw-bold:    700;
+  --fw-light:   300;
+  /* Fiori shell heights */
+  --shell-h:   2.75rem;    /* 44px header */
+  --bar-h:     2.5rem;     /* 40px toolbar */
+  --row-h:     2.75rem;    /* 44px rows — Fiori list item height */
+  --radius:    0.25rem;    /* 4px — Fiori border-radius */
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-regular);
+  line-height: 1.4;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── HEADER ── */
+header {
+  background: var(--surface);
+  border-bottom: 2px solid var(--accent);
+  padding: 0 1.5rem;
+  height: var(--shell-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.brand-name {
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.brand-sep { color: var(--muted); font-weight: var(--fw-light); }
+
+.brand-sub {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--accent);
+  letter-spacing: 0;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.count-tag {
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  background: var(--bg);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius);
+  padding: 0.125rem 0.5rem;
+  color: var(--sub);
+}
+
+/* Shared-list connection status */
+.sync-tag {
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  border-radius: var(--radius);
+  padding: 0.125rem 0.5rem;
+  transition: color 0.2s, background 0.2s;
+  white-space: nowrap;
+}
+.sync-tag.is-synced   { color: var(--success); }
+.sync-tag.is-saving   { color: var(--accent); }
+.sync-tag.is-offline  { color: var(--danger); background: #fdf0ef; }
+.sync-tag.is-conflict { color: #9a7000; background: #fffbe6; }
+
+/* Row flashes briefly when updated by another contributor */
+@keyframes remoteFlash {
+  from { background: #fffbe6; }
+  to   { background: var(--surface); }
+}
+.var-row.remote-update { animation: remoteFlash 1.2s ease; }
+
+/* ── AVATARS ── */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  color: #fff;
+  font-family: var(--sans);
+  font-size: 0.625rem;
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.01em;
+  flex-shrink: 0;
+  border: 1.5px solid var(--surface);
+  user-select: none;
+  line-height: 1;
+}
+.avatar.sm   { width: 1.375rem; height: 1.375rem; font-size: 0.5625rem; }
+.avatar.attr { width: 1.25rem;  height: 1.25rem;  font-size: 0.5625rem; opacity: 0.9; }
+.avatar.me   { width: 1.5rem;   height: 1.5rem; }
+.avatar.more { background: var(--muted) !important; }
+
+/* Pulsing avatar for someone editing a row right now */
+.avatar.live {
+  box-shadow: 0 0 0 0 rgba(0,112,242,0.5);
+  animation: livePulse 1.6s ease-out infinite;
+}
+@keyframes livePulse {
+  0%   { box-shadow: 0 0 0 0 rgba(0,112,242,0.5); }
+  70%  { box-shadow: 0 0 0 5px rgba(0,112,242,0); }
+  100% { box-shadow: 0 0 0 0 rgba(0,112,242,0); }
+}
+
+/* Row currently being edited by a teammate */
+.var-row.being-edited {
+  box-shadow: inset 3px 0 0 var(--accent);
+  background: #f7fbff;
+}
+
+/* ── PRESENCE (header) ── */
+.presence {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.presence-cluster {
+  display: flex;
+  align-items: center;
+}
+.presence-cluster .avatar { margin-left: -0.4375rem; }
+.presence-cluster .avatar:first-child { margin-left: 0; }
+.presence-count {
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  color: var(--sub);
+  white-space: nowrap;
+}
+
+/* "Me" chip — click to set/rename */
+.me-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 0.125rem 0.5rem 0.125rem 0.1875rem;
+  cursor: pointer;
+  transition: border-color 0.1s, background 0.1s;
+}
+.me-tag:hover { border-color: var(--accent); background: var(--accent-bg); }
+.me-name {
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  color: var(--text);
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── TOOLBAR ── */
+.toolbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 1.5rem;
+  height: var(--bar-h);
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+/* Add bar lives at the bottom now — border on top, sits below the workspace.
+   flex-shrink:0 keeps it from collapsing when the list is tall. */
+.bottombar {
+  border-bottom: none;
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -1px 3px rgba(0,0,0,0.04);
+  flex-shrink: 0;
+}
+
+.toolbar-label {
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: 0.75rem;
+  flex-shrink: 0;
+}
+
+.type-btns {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.type-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: var(--surface);
+  border: none;
+  border-right: 1px solid var(--border);
+  padding: 0 0.75rem;
+  height: 1.75rem;
+  color: var(--sub);
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-regular);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  white-space: nowrap;
+}
+
+.type-btn:last-child { border-right: none; }
+
+.type-btn:hover { background: var(--accent-bg); color: var(--accent); }
+
+.type-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.spacer { flex: 1; }
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius);
+  padding: 0 0.75rem;
+  height: 1.75rem;
+  color: var(--sub);
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-regular);
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.btn-ghost:hover { border-color: var(--danger); color: var(--danger); }
+
+.btn-primary {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 0 1rem;
+  height: 1.75rem;
+  color: #fff;
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.btn-primary:hover { background: #0064d9; border-color: #0064d9; }
+.btn-primary:active { background: #0057c2; border-color: #0057c2; }
+.btn-primary:disabled { background: var(--muted); border-color: var(--muted); cursor: not-allowed; }
+
+/* ── FILTER BAR ── */
+/* Recessed grey strip so it reads as a *view* control, distinct from the
+   white *build* toolbar above it (both once shared bg + the same type dots). */
+.filterbar {
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 rgba(0,0,0,0.03);
+  padding: 0 1.5rem;
+  min-height: var(--bar-h);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.filterbar .toolbar-label { margin-right: 0.5rem; }
+
+.filter-search {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius);
+  padding: 0 0.5rem;
+  height: 1.75rem;
+  background: var(--surface);
+  min-width: 240px;
+  transition: border-color 0.1s, box-shadow 0.1s;
+}
+.filter-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-bg); }
+.fs-icon { color: var(--muted); font-size: 0.875rem; }
+.filter-search input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+}
+.fs-clear {
+  background: transparent; border: none; color: var(--muted);
+  cursor: pointer; font-size: 0.75rem; padding: 2px; line-height: 1;
+}
+.fs-clear:hover { color: var(--danger); }
+
+.filter-sep { width: 1px; height: 1.25rem; background: var(--border); flex-shrink: 0; }
+
+.type-chips { display: flex; gap: 0.25rem; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  background: var(--surface);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius);
+  padding: 0 0.5rem;
+  height: 1.75rem;
+  color: var(--sub);
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: all 0.1s;
+  white-space: nowrap;
+}
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+.chip.active {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: var(--fw-bold);
+}
+.chip-flag.active { background: var(--accent-bg); }
+
+.filter-select {
+  height: 1.75rem;
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--sub);
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  padding: 0 0.375rem;
+  cursor: pointer;
+  outline: none;
+  max-width: 160px;
+}
+.filter-select:focus { border-color: var(--accent); }
+.filter-select.active { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+
+.sort-created.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); font-weight: var(--fw-bold); }
+
+/* ── LAYOUT ── */
+.workspace {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── TABLE PANEL ── */
+.table-panel {
+  overflow-y: auto;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Column layout — must match row */
+.col-type      { width: 72px;  flex-shrink: 0; }
+.col-id        { width: 180px; flex-shrink: 0; }
+.col-display   { flex: 1; min-width: 120px; }
+.col-default   { width: 150px; flex-shrink: 0; }
+.col-category  { width: 110px; flex-shrink: 0; }
+.col-override  { width: 50px;  flex-shrink: 0; text-align: center; }
+.col-actions   { width: 96px;  flex-shrink: 0; }
+
+/* ── TABLE HEADER ── */
+.table-head {
+  display: flex;
+  align-items: center;
+  padding: 0 0.75rem;
+  height: 1.875rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+}
+
+.table-head > span {
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--sub);
+  padding-right: 0.5rem;
+}
+
+/* Sortable column headers */
+.table-head > span.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.1s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.table-head > span.sortable:hover { color: var(--accent); }
+.table-head > span.sortable::after {
+  content: '↕';
+  font-size: 0.625rem;
+  opacity: 0.35;
+  transition: opacity 0.1s;
+}
+.table-head > span.sortable:hover::after { opacity: 0.7; }
+.table-head > span.sort-asc,
+.table-head > span.sort-desc { color: var(--accent); }
+.table-head > span.sort-asc::after  { content: '↑'; opacity: 1; }
+.table-head > span.sort-desc::after { content: '↓'; opacity: 1; }
+
+/* Rows hidden by an active filter */
+.var-row.filtered-out,
+.select-row-extra.filtered-out { display: none; }
+
+/* ── VARIABLE ROW ── */
+.var-row {
+  display: flex;
+  align-items: center;
+  padding: 0 0.75rem;
+  height: var(--row-h);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.08s;
+  animation: rowIn 0.15s ease;
+  flex-shrink: 0;
+}
+
+@keyframes rowIn {
+  from { opacity: 0; background: var(--accent-bg); }
+  to   { opacity: 1; background: var(--surface); }
+}
+
+.var-row:hover { background: var(--row-hover); }
+
+/* Inline text inputs */
+.var-row input[type="text"],
+.var-row input[type="number"] {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 0.1875rem 0.375rem;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-regular);
+  width: 100%;
+  outline: none;
+  transition: border-color 0.1s, background 0.1s;
+}
+
+.var-row input[type="text"]:hover,
+.var-row input[type="number"]:hover {
+  border-color: var(--border);
+}
+
+.var-row input[type="text"]:focus,
+.var-row input[type="number"]:focus {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.var-row input[readonly] {
+  color: var(--sub);
+  cursor: default;
+  border-color: transparent !important;
+  background: transparent !important;
+  user-select: all;
+}
+
+.var-row input::placeholder { color: var(--muted); }
+
+/* Color input cell */
+.color-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.color-cell input[type="color"] {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 1px;
+  cursor: pointer;
+  flex-shrink: 0;
+  background: transparent;
+}
+
+.color-cell input[type="text"] {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Checkbox */
+.var-row input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* Type badge */
+.type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: var(--sans);
+  font-size: 0.6875rem;
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.03em;
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius);
+  white-space: nowrap;
+}
+
+/* Delete btn */
+.del-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 4px;
+  border-radius: 2px;
+  transition: color 0.1s, background 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.del-btn:hover { color: var(--danger); background: #fdf0ef; }
+
+/* Select options expander */
+.select-row-extra {
+  background: #f5f6f7;
+  border-bottom: 1px solid var(--border);
+  padding: 0.625rem 0.75rem 0.625rem 5.25rem;
+  animation: rowIn 0.15s ease;
+  flex-shrink: 0;
+}
+
+.select-row-extra .extra-label {
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.opts-table {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.opts-head {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 28px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.opts-head span {
+  font-family: var(--sans);
+  font-size: 0.6875rem;
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0.25rem 0.5rem;
+  border-right: 1px solid var(--border);
+}
+
+.opts-head span:last-child { border-right: none; }
+
+.opt-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 28px;
+  border-top: 1px solid var(--border);
+}
+
+.opt-row:first-child { border-top: none; }
+
+.opt-row input {
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--border);
+  padding: 0.3125rem 0.5rem;
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  color: var(--text);
+  outline: none;
+  width: 100%;
+  transition: background 0.08s;
+}
+
+.opt-row input:focus { background: var(--accent-bg); }
+.opt-row input::placeholder { color: var(--muted); }
+
+.opt-del {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.1s;
+}
+.opt-del:hover { color: var(--danger); }
+
+.btn-tiny {
+  background: transparent;
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius);
+  padding: 0.125rem 0.5rem;
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-regular);
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.btn-tiny:hover { background: var(--accent-bg); border-color: var(--accent); }
+
+/* Empty state */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--muted);
+  padding: 60px 20px;
+}
+
+.empty-icon {
+  font-family: var(--sans);
+  font-size: 1.75rem;
+  color: var(--border-hi);
+  letter-spacing: -0.02em;
+}
+
+.empty-state p {
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  text-align: center;
+}
+
+/* ── PREVIEW PANEL ── */
+.preview-panel {
+  display: flex;
+  flex-direction: column;
+  background: #fafaf8;
+  overflow: hidden;
+}
+
+.preview-header {
+  padding: 0 1rem;
+  height: var(--bar-h);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.preview-title {
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.preview-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.875rem 1rem;
+}
+
+pre#json-output {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  line-height: 1.75;
+  color: var(--sub);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* JSON colors — Fiori Horizon syntax */
+.jk  { color: #0070f2; }   /* key — Fiori blue */
+.jv  { color: #188918; }   /* string value — green */
+.jn  { color: #c05c00; }   /* number */
+.jb  { color: #6a1c91; }   /* boolean */
+
+.preview-footer {
+  padding: 0.625rem 1rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 1rem;
+  flex-shrink: 0;
+  background: var(--surface);
+}
+
+.stat {
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+
+.stat strong { color: var(--text); font-weight: var(--fw-bold); }
+
+/* Duplicate-id warning */
+.dup-badge { color: #9a7000; font-weight: var(--fw-bold); }
+.var-row input.dup-id {
+  border-color: #9a7000 !important;
+  background: #fffbe6 !important;
+  color: #9a7000;
+}
+
+/* TYPE COLORS */
+.t-string  { background: #edf0ff; color: #1a4fd6; }
+.t-integer { background: #fff4e6; color: #c05c00; }
+.t-decimal { background: #fef2ec; color: #b84a1e; }
+.t-color   { background: #fef0f5; color: #a81660; }
+.t-image   { background: #fffbe6; color: #9a7000; }
+.t-select  { background: #edfaf3; color: #1a7a4a; }
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-hi); }
+
+/* select expand indicator */
+.select-toggle {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 4px;
+  line-height: 1;
+  transition: color 0.1s;
+}
+.select-toggle:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="brand">
+    <span class="brand-name">Brand Center</span>
+    <span class="brand-sep">/</span>
+    <span class="brand-sub">variable-builder</span>
+  </div>
+  <div class="header-right">
+    <div class="presence" id="presence" title="People here now">
+      <div class="presence-cluster" id="presence-cluster" style="display:none"></div>
+      <span class="presence-count" id="presence-count">only you</span>
+    </div>
+    <button class="me-tag" id="me-tag" title="Click to change your name"></button>
+    <span class="sync-tag" id="sync-tag" title="Connection to the shared list">● connecting…</span>
+    <span class="count-tag" id="count-tag">0 variables</span>
+  </div>
+</header>
+
+<!-- FILTER BAR -->
+<div class="filterbar" id="filterbar" style="display:none">
+  <span class="toolbar-label">Filter</span>
+  <div class="filter-search">
+    <span class="fs-icon">⌕</span>
+    <input type="text" id="f-search" placeholder="Search name, id, value, category…" autocomplete="off" spellcheck="false">
+    <button class="fs-clear" id="fs-clear" title="Clear search" style="display:none">✕</button>
+  </div>
+
+  <span class="filter-sep"></span>
+
+  <div class="type-chips" id="type-chips">
+    <button class="chip" data-type="string"><span class="type-dot" style="background:#1a4fd6"></span>string</button>
+    <button class="chip" data-type="integer"><span class="type-dot" style="background:#c05c00"></span>integer</button>
+    <button class="chip" data-type="decimal"><span class="type-dot" style="background:#b84a1e"></span>decimal</button>
+    <button class="chip" data-type="color"><span class="type-dot" style="background:#a81660"></span>color</button>
+    <button class="chip" data-type="image"><span class="type-dot" style="background:#9a7000"></span>image</button>
+    <button class="chip" data-type="select"><span class="type-dot" style="background:#1a7a4a"></span>select</button>
+  </div>
+
+  <span class="filter-sep"></span>
+
+  <select id="f-category" class="filter-select" title="Filter by category">
+    <option value="">All categories</option>
+  </select>
+
+  <button class="chip chip-flag" id="f-editable" title="Show only editable variables">editable only</button>
+  <button class="chip chip-flag" id="f-dupes" title="Show only rows with duplicate ids">duplicates</button>
+
+  <div class="spacer"></div>
+
+  <button class="chip sort-created" id="sort-created" title="Sort by creation time">Created ↓</button>
+  <button class="btn-ghost" id="filter-reset" title="Clear all filters &amp; sorting">Reset</button>
+</div>
+
+<!-- WORKSPACE -->
+<div class="workspace">
+
+  <!-- TABLE -->
+  <div class="table-panel" id="table-panel">
+
+    <!-- Column headers (sortable) -->
+    <div class="table-head" id="table-head" style="display:none">
+      <span class="col-type sortable"  data-sort="type">Type</span>
+      <span class="col-display sortable" data-sort="display_name">display_name</span>
+      <span class="col-id sortable"     data-sort="id">id</span>
+      <span class="col-default sortable" data-sort="default_value">default_value</span>
+      <span class="col-category sortable" data-sort="category">category</span>
+      <span class="col-override sortable" data-sort="is_overridable" title="is_overridable">edit</span>
+      <span class="col-actions"></span>
+    </div>
+
+    <!-- Rows go here -->
+    <div id="rows-container"></div>
+
+    <!-- Empty state -->
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">[ ]</div>
+      <p>No variables yet.<br>Choose a type above to add one.</p>
+    </div>
+
+    <!-- No-match state (filters hide everything) -->
+    <div class="empty-state" id="nomatch-state" style="display:none">
+      <div class="empty-icon">⌕</div>
+      <p>No variables match your filters.<br><button class="btn-tiny" onclick="resetFilters()">Clear filters</button></p>
+    </div>
+
+  </div>
+
+  <!-- JSON PREVIEW -->
+  <div class="preview-panel">
+    <div class="preview-header">
+      <span class="preview-title">JSON Preview</span>
+      <button class="btn-tiny" id="copy-btn" onclick="copyJson()">⎘ Copy</button>
+    </div>
+    <div class="preview-body">
+      <pre id="json-output"><span style="color:var(--muted)">// empty</span></pre>
+    </div>
+    <div class="preview-footer">
+      <span class="stat"><strong id="s-total">0</strong> variables</span>
+      <span class="stat"><strong id="s-ovrd">0</strong> editable</span>
+      <span class="stat"><strong id="s-cat">0</strong> with category</span>
+      <span class="stat dup-badge" id="dup-badge" style="display:none"></span>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM BAR: Add + document actions -->
+<div class="toolbar bottombar">
+  <span class="toolbar-label">+ Add</span>
+  <div class="type-btns">
+    <button class="type-btn" onclick="addVar('string')">
+      <span class="type-dot" style="background:#1a4fd6"></span>string
+    </button>
+    <button class="type-btn" onclick="addVar('integer')">
+      <span class="type-dot" style="background:#c05c00"></span>integer
+    </button>
+    <button class="type-btn" onclick="addVar('decimal')">
+      <span class="type-dot" style="background:#b84a1e"></span>decimal
+    </button>
+    <button class="type-btn" onclick="addVar('color')">
+      <span class="type-dot" style="background:#a81660"></span>color
+    </button>
+    <button class="type-btn" onclick="addVar('image')">
+      <span class="type-dot" style="background:#9a7000"></span>image
+    </button>
+    <button class="type-btn" onclick="addVar('select')">
+      <span class="type-dot" style="background:#1a7a4a"></span>select
+    </button>
+  </div>
+  <div class="spacer"></div>
+  <div class="toolbar-right">
+    <button class="btn-ghost" onclick="triggerImport()">↑ Import JSON</button>
+    <button class="btn-ghost" onclick="clearAll()">Clear all</button>
+    <button class="btn-primary" id="dl-btn" onclick="downloadJson()" disabled>
+      ↓ Download JSON
+    </button>
+  </div>
+  <input type="file" id="import-input" accept=".json,application/json" style="display:none" onchange="importJson(event)">
+</div>
+
+<script src="/shared/validate.js"></script>
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+// Each record mirrors a server row: real `uid` + `version`, the variable data,
+// and client-only flags (_expanded UI, _dirty pending-save, _idTracks id-follows-name).
+let vars = [];
+let localRev = null;               // last server revision we rendered
+const saveTimers = {};             // uid -> debounce timer
+const SAVE_DEBOUNCE = 500;
+const POLL_MS = 4000;
+const CACHE_KEY = 'bc-variable-builder-cache';   // offline fallback ONLY
+const V = window.VBValidate;
+
+// ─── Identity (who am I, for attribution + presence) ──────────────────────────
+// A stable clientId (this browser) + a chosen display name. Both persist in
+// localStorage; the name is prompted for once and can be changed any time. They
+// ride on every request as headers, so the server can stamp WHO edited each row
+// and track WHO is here right now. Anonymous-but-named: no accounts, no auth.
+const ID_KEY = 'bc-variable-builder-clientid';
+const NAME_KEY = 'bc-variable-builder-name';
+const me = { id: '', tabId: '', name: '' };
+
+// The presence identity sent on the wire: personId:tabId. The personId half is
+// persisted (stable per browser) and identifies the human; the tabId half is
+// generated fresh each load and NOT persisted, so two tabs of the same browser
+// get distinct presence entries and never clobber each other's editingUid.
+// Everywhere we ask "is this me?" we compare the personId prefix, so a person's
+// own second tab is deduped in the header and never shown as a remote editor.
+function myWireId() { return me.tabId ? `${me.id}:${me.tabId}` : me.id; }
+function isMine(wireId) { return wireId === me.id || String(wireId).startsWith(me.id + ':'); }
+
+function makeClientId() {
+  // Prefer crypto UUID; fall back to a random-ish token if unavailable.
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'c-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+function loadIdentity() {
+  try {
+    me.id = localStorage.getItem(ID_KEY) || '';
+    me.name = localStorage.getItem(NAME_KEY) || '';
+  } catch {}
+  if (!me.id) { me.id = makeClientId(); try { localStorage.setItem(ID_KEY, me.id); } catch {} }
+  me.tabId = makeClientId();          // per-tab, never persisted
+}
+
+function saveName(name) {
+  me.name = cleanName(name);
+  try { localStorage.setItem(NAME_KEY, me.name); } catch {}
+}
+
+// Names are trimmed, control-char-stripped, and length-clamped (server clamps
+// too; the client still escapes on render). Empty stays empty (prompts later).
+function cleanName(n) {
+  return String(n == null ? '' : n).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 40);
+}
+
+// The uid of the row this client is currently editing (focused), or '' if none.
+// Sent on every request so teammates see "X is editing this row" promptly.
+function editingUid() {
+  const u = focusedRowUid();
+  return u == null ? '' : String(u);
+}
+
+// ─── API ──────────────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const headers = {};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (me.id) headers['X-VB-Client'] = myWireId();
+  // Percent-encode: fetch headers are ByteStrings (Latin-1). A raw CJK/Cyrillic
+  // name would throw on EVERY request and kill the session; encoding keeps it
+  // ASCII-safe on the wire (server decodeURIComponent's it back).
+  if (me.name) headers['X-VB-Name'] = encodeURIComponent(me.name);
+  headers['X-VB-Editing'] = editingUid();
+  const res = await fetch(path, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  let json = null;
+  try { json = await res.json(); } catch { /* no body */ }
+  return { ok: res.ok, status: res.status, json };
+}
+
+// ─── Sync status indicator ─────────────────────────────────────────────────────
+function setSync(state, text) {
+  const el = document.getElementById('sync-tag');
+  el.className = 'sync-tag is-' + state;
+  const dot = { synced: '●', saving: '◐', offline: '○', conflict: '▲' }[state] || '●';
+  el.textContent = `${dot} ${text}`;
+}
+
+// ─── Avatars + attribution + presence ──────────────────────────────────────────
+// Everything here is UI over two orthogonal signals:
+//   • attribution — WHO last edited a row + WHEN (persistent, from row._meta)
+//   • presence    — WHO is here right now + which row they're editing (ephemeral)
+// Presence never touches `vars`, the data revision, or the reconcile engine; it
+// is applied on every poll independently of `localRev`, so it can update the
+// "editing now" indicators without disturbing anyone's in-progress edit.
+
+// Deterministic colour from a name, so each person keeps a stable avatar hue.
+function avatarColor(name) {
+  const s = String(name || '?');
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+  return `hsl(${h}, 55%, 42%)`;
+}
+
+// 1–2 letter initials from a name.
+function initials(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+// A small circular avatar. `cls` adds modifiers (e.g. 'live' for pulsing).
+function avatarHTML(name, cls, titleText) {
+  const bg = avatarColor(name);
+  const t = titleText != null ? titleText : name;
+  return `<span class="avatar ${cls || ''}" style="background:${bg}" title="${esc(t)}">${esc(initials(name))}</span>`;
+}
+
+// "just now" / "3m ago" / "2h ago" / "4d ago" from an ISO timestamp.
+function relTime(iso) {
+  if (!iso) return '';
+  const then = Date.parse(iso);
+  if (Number.isNaN(then)) return '';
+  const s = Math.max(0, Math.round((Date.now() - then) / 1000));
+  if (s < 45) return 'just now';
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.round(h / 24);
+  return `${d}d ago`;
+}
+
+// Human tooltip for a row's attribution block.
+function attributionTitle(meta) {
+  if (!meta) return 'No edit history yet';
+  const ed = meta.updated_by ? `Last edited by ${meta.updated_by} · ${relTime(meta.updated_at)}` : '';
+  const cr = meta.created_by && meta.created_by !== meta.updated_by
+    ? `\nCreated by ${meta.created_by} · ${relTime(meta.created_at)}` : '';
+  return (ed + cr) || 'No edit history yet';
+}
+
+// Re-stamp just the attribution avatar in a row (after a save or remote change),
+// without touching the inputs the user may be typing in.
+function refreshAttribution(v) {
+  const row = document.getElementById(`row-${v.uid}`);
+  if (!row) return;
+  const slot = row.querySelector('.attr-slot');
+  if (!slot) return;
+  const meta = v._meta;
+  slot.innerHTML = meta && meta.updated_by
+    ? avatarHTML(meta.updated_by, 'attr', attributionTitle(meta))
+    : '';
+}
+
+// ── Live presence state (ephemeral) ──
+// list: [{ id, name, editingUid }]  — everyone the server saw within its TTL.
+let presenceList = [];
+
+// Apply a fresh presence list: refresh the header cluster and the per-row
+// "someone is editing this" indicators. Called on EVERY poll (revision-agnostic).
+function applyPresence(list) {
+  presenceList = Array.isArray(list) ? list : [];
+  renderPresenceCluster();
+  renderLiveEditors();
+}
+
+// Header: my chip + a stacked cluster of everyone else here now.
+function renderPresenceCluster() {
+  // Others = everyone not me (any tab of mine), deduped to one chip per person
+  // so a teammate with two tabs shows once. Key by personId (prefix before ':').
+  const personOf = wid => String(wid).split(':')[0];
+  const seen = new Set();
+  const others = [];
+  presenceList.forEach(p => {
+    if (isMine(p.id)) return;
+    const person = personOf(p.id);
+    if (seen.has(person)) return;
+    seen.add(person);
+    others.push(p);
+  });
+  const cluster = document.getElementById('presence-cluster');
+  if (cluster) {
+    const MAX = 5;
+    const shown = others.slice(0, MAX);
+    const extra = others.length - shown.length;
+    cluster.innerHTML =
+      shown.map(p => avatarHTML(p.name, 'sm', `${p.name}${p.editingUid ? ' — editing' : ''}`)).join('') +
+      (extra > 0 ? `<span class="avatar sm more" title="${extra} more">+${extra}</span>` : '');
+    cluster.style.display = others.length ? 'flex' : 'none';
+  }
+  const label = document.getElementById('presence-count');
+  if (label) {
+    const total = others.length + 1;               // include me (once)
+    label.textContent = total > 1 ? `${total} here` : 'only you';
+  }
+}
+
+// Mark rows that OTHER people are currently editing (never my own focus). Adds a
+// pulsing avatar overlay + a coloured left edge, cleared when they move away.
+function renderLiveEditors() {
+  const editingByRow = new Map();                   // uid -> [names]
+  presenceList.forEach(p => {
+    if (isMine(p.id)) return;                       // my own edits (any tab) aren't "remote"
+    if (p.editingUid == null) return;
+    if (!editingByRow.has(p.editingUid)) editingByRow.set(p.editingUid, []);
+    editingByRow.get(p.editingUid).push(p.name);
+  });
+
+  document.querySelectorAll('.var-row').forEach(row => {
+    const uid = Number(row.id.replace('row-', ''));
+    const slot = row.querySelector('.live-slot');
+    const names = editingByRow.get(uid);
+    row.classList.toggle('being-edited', !!names);
+    if (slot) {
+      slot.innerHTML = names
+        ? names.slice(0, 2).map(n => avatarHTML(n, 'live', `${n} is editing…`)).join('')
+        : '';
+    }
+  });
+}
+
+// Push presence immediately (out of band with the 4s poll) — used on focus
+// change and rename so "X is editing this row" appears within a beat, not 4s.
+let presencePushTimer = null;
+async function pushPresence() {
+  clearTimeout(presencePushTimer);
+  // Debounce a touch: rapid focus hops collapse into one push.
+  presencePushTimer = setTimeout(async () => {
+    const res = await api('POST', '/api/presence');
+    if (res.ok && res.json && res.json.presence) applyPresence(res.json.presence);
+  }, 120);
+}
+
+// ── Identity prompt + rename ──
+function renderMeTag() {
+  const tag = document.getElementById('me-tag');
+  if (!tag) return;
+  tag.innerHTML = avatarHTML(me.name || 'You', 'me') +
+    `<span class="me-name">${esc(me.name || 'Set your name')}</span>`;
+}
+
+function promptName(initial) {
+  const current = me.name;
+  const next = window.prompt(
+    initial ? 'Your name (so teammates can see who edits what):' : 'Change your display name:',
+    current || ''
+  );
+  if (next == null) return;                         // cancelled
+  const cleaned = cleanName(next);
+  if (!cleaned) return;
+  saveName(cleaned);
+  renderMeTag();
+  pushPresence();                                   // broadcast the new name now
+}
+
+function ensureName() {
+  if (!me.name) promptName(true);
+}
+
+// Just the persistable variable fields (what the server coerces/stores).
+function dataOf(v) {
+  const d = {
+    id: v.id,
+    display_name: v.display_name,
+    default_value: v.default_value,
+    is_overridable: v.is_overridable,
+    type: v.type,
+    category: v.category,
+  };
+  if (v.type === 'select') d.type_config = v.type_config;
+  return d;
+}
+
+// ─── Add variable ─────────────────────────────────────────────────────────────
+async function addVar(type) {
+  const raw = {
+    id: '',
+    display_name: '',
+    default_value: type === 'color' ? '#000000' : '',
+    is_overridable: true,
+    type,
+    category: '',
+    type_config: { options: [] },
+  };
+  setSync('saving', 'saving…');
+  const res = await api('POST', '/api/variables', raw);
+  if (!res.ok) { setSync('offline', 'save failed'); return; }
+
+  const v = toRecord(res.json.variable);
+  vars.push(v);
+  // NB: do NOT set localRev here — only applyServerList (which renders the full
+  // server state) may advance it, or we'd skip unseen concurrent changes.
+  renderRow(v);
+  showHead();
+  update();
+  setSync('synced', 'saved');
+  applyView();   // place the new row in the current sort/filter (reparents the row)
+  // Focus AFTER applyView: it appendChild's the row into sorted position, and
+  // moving a focused element in the DOM blurs it — so focus last, not before.
+  const row = document.getElementById(`row-${v.uid}`);
+  const displayInput = row && row.querySelector('.f-display');
+  if (displayInput) displayInput.focus();
+}
+
+// Turn a server record into a client record with UI flags.
+function toRecord(rec) {
+  const type_config = (rec.type === 'select' && rec.type_config && Array.isArray(rec.type_config.options))
+    ? rec.type_config : { options: [] };
+  return {
+    uid: rec.uid,
+    version: rec.version,
+    id: rec.id ?? '',
+    display_name: rec.display_name ?? '',
+    default_value: rec.default_value ?? '',
+    is_overridable: rec.is_overridable !== undefined ? rec.is_overridable : true,
+    type: rec.type ?? 'string',
+    category: rec.category ?? '',
+    type_config,
+    _meta: rec._meta || null,        // { created_by, created_at, updated_by, updated_at } — attribution, never exported
+    _expanded: false,
+    _dirty: false,
+    _saving: false,
+    // id auto-follows display_name only while they're already in sync
+    // (preserves imported ids like "primaryColor" that don't match snake_case).
+    _idTracks: (rec.id ?? '') === V.toSnakeCase(rec.display_name ?? ''),
+  };
+}
+
+// ─── Render row ───────────────────────────────────────────────────────────────
+function renderRow(v) {
+  document.getElementById('empty-state').style.display = 'none';
+  const container = document.getElementById('rows-container');
+
+  const row = document.createElement('div');
+  row.className = 'var-row';
+  row.id = `row-${v.uid}`;
+  row.innerHTML = rowHTML(v);
+  container.appendChild(row);
+  wireRow(v, row);
+
+  if (v.type === 'select') {
+    const extra = document.createElement('div');
+    extra.className = 'select-row-extra';
+    extra.id = `extra-${v.uid}`;
+    extra.style.display = v._expanded ? 'block' : 'none';
+    extra.innerHTML = selectExtraHTML(v);
+    container.appendChild(extra);
+    wireExtra(v, extra);
+  }
+}
+
+// Re-render an existing row in place (used after remote updates / conflicts).
+function refreshRow(v) {
+  const row = document.getElementById(`row-${v.uid}`);
+  if (!row) return;
+  row.innerHTML = rowHTML(v);
+  wireRow(v, row);
+  if (v.type === 'select') {
+    let extra = document.getElementById(`extra-${v.uid}`);
+    if (!extra) {
+      extra = document.createElement('div');
+      extra.className = 'select-row-extra';
+      extra.id = `extra-${v.uid}`;
+      row.after(extra);
+    }
+    extra.style.display = v._expanded ? 'block' : 'none';
+    extra.innerHTML = selectExtraHTML(v);
+    wireExtra(v, extra);
+  }
+}
+
+function rowHTML(v) {
+  const defaultCell = v.type === 'color'
+    ? `<div class="color-cell">
+        <input type="color" class="f-color-pick" value="${esc(/^#[0-9a-fA-F]{6}$/.test(v.default_value) ? v.default_value : '#000000')}">
+        <input type="text"  class="f-default" value="${esc(v.default_value)}" placeholder="#rrggbb">
+       </div>`
+    : `<input type="text" class="f-default" value="${esc(v.default_value)}" placeholder="${defPlaceholder(v.type)}">`;
+
+  const selectIcon = v.type === 'select'
+    ? `<button class="select-toggle" title="Manage options">${v._expanded ? '▴' : '▾'}</button>`
+    : '';
+
+  return `
+    <span class="col-type">
+      <span class="type-badge t-${v.type}">${v.type}</span>
+    </span>
+    <span class="col-display">
+      <input type="text" class="f-display" value="${esc(v.display_name)}" placeholder="Display name">
+    </span>
+    <span class="col-id">
+      <input type="text" class="f-id" value="${esc(v.id)}" placeholder="—" spellcheck="false">
+    </span>
+    <span class="col-default">${defaultCell}</span>
+    <span class="col-category">
+      <input type="text" class="f-category" value="${esc(v.category)}" placeholder="—">
+    </span>
+    <span class="col-override">
+      <input type="checkbox" class="f-override" ${v.is_overridable ? 'checked' : ''}>
+    </span>
+    <span class="col-actions" style="display:flex;align-items:center;gap:2px;">
+      <span class="live-slot"></span>
+      <span class="attr-slot">${v._meta && v._meta.updated_by ? avatarHTML(v._meta.updated_by, 'attr', attributionTitle(v._meta)) : ''}</span>
+      ${selectIcon}
+      <button class="del-btn" title="Remove">✕</button>
+    </span>
+  `;
+}
+
+function wireRow(v, row) {
+  const bind = (cls, field, transform) => {
+    const el = row.querySelector(cls);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      v[field] = transform ? transform(el) : el.value;
+      touch(v);
+    });
+  };
+
+  const idInput = row.querySelector('.f-id');
+  const displayInput = row.querySelector('.f-display');
+
+  // display_name drives id ONLY while id is still tracking the name.
+  displayInput.addEventListener('input', () => {
+    v.display_name = displayInput.value;
+    if (v._idTracks) {
+      v.id = V.toSnakeCase(displayInput.value);
+      idInput.value = v.id;
+    }
+    touch(v);
+  });
+
+  // id is editable; manual edit decouples it from display_name.
+  idInput.addEventListener('input', () => {
+    v.id = idInput.value;
+    v._idTracks = (v.id === V.toSnakeCase(v.display_name));
+    touch(v);
+  });
+
+  bind('.f-category', 'category');
+  bind('.f-override', 'is_overridable', el => el.checked);
+
+  // Non-color default binds directly; color is handled below.
+  if (v.type !== 'color') bind('.f-default', 'default_value');
+
+  const colorPick = row.querySelector('.f-color-pick');
+  const colorText = row.querySelector('.f-default');
+  if (colorPick && colorText) {
+    colorPick.addEventListener('input', () => {
+      v.default_value = colorPick.value;
+      colorText.value = colorPick.value;
+      touch(v);
+    });
+    colorText.addEventListener('input', () => {
+      v.default_value = colorText.value;
+      if (/^#[0-9a-fA-F]{6}$/.test(colorText.value)) colorPick.value = colorText.value;
+      touch(v);
+    });
+  }
+
+  const toggle = row.querySelector('.select-toggle');
+  if (toggle) {
+    toggle.addEventListener('click', () => {
+      v._expanded = !v._expanded;
+      const extra = document.getElementById(`extra-${v.uid}`);
+      if (extra) extra.style.display = v._expanded ? 'block' : 'none';
+      toggle.textContent = v._expanded ? '▴' : '▾';
+    });
+  }
+
+  row.querySelector('.del-btn').addEventListener('click', () => deleteVar(v));
+
+  // Focusing any field in this row → tell teammates I'm editing it (immediate,
+  // out-of-band push). Blur pushes too so my "editing" flag clears when I leave.
+  row.addEventListener('focusin', pushPresence);
+  row.addEventListener('focusout', pushPresence);
+}
+
+// Mark a variable edited: update preview + validation now, persist (debounced).
+function touch(v) {
+  v._dirty = true;
+  update();
+  scheduleSave(v);
+}
+
+// ─── Select options ───────────────────────────────────────────────────────────
+function selectExtraHTML(v) {
+  const rows = v.type_config.options.map(o => optRowHTML(o)).join('');
+  return `
+    <div class="extra-label">
+      <span>Options (id · value · name)</span>
+      <button class="btn-tiny add-opt-btn">+ option</button>
+    </div>
+    <div class="opts-table">
+      <div class="opts-head">
+        <span>id</span><span>value</span><span>name</span><span></span>
+      </div>
+      <div class="opts-body" id="opts-${v.uid}">${rows}</div>
+    </div>
+  `;
+}
+
+function optRowHTML(o) {
+  return `
+    <div class="opt-row">
+      <input type="text" placeholder="id"    value="${esc(o.id)}"    data-opt="id">
+      <input type="text" placeholder="value" value="${esc(o.value)}" data-opt="value">
+      <input type="text" placeholder="name"  value="${esc(o.name)}"  data-opt="name">
+      <button class="opt-del">✕</button>
+    </div>`;
+}
+
+function wireExtra(v, extra) {
+  extra.querySelector('.add-opt-btn').addEventListener('click', () => {
+    const opt = { id: '', value: '', name: '' };
+    v.type_config.options.push(opt);
+    const body = extra.querySelector(`#opts-${v.uid}`);
+    const el = document.createElement('div');
+    el.className = 'opt-row';
+    el.innerHTML = optRowHTML(opt);
+    body.appendChild(el);
+    wireOptRow(v, el, opt);        // bind to the option OBJECT, not an index
+    el.querySelector('input').focus();
+    touch(v);
+  });
+
+  const opts = v.type_config.options;
+  extra.querySelectorAll('.opt-row').forEach((el, i) => wireOptRow(v, el, opts[i]));
+}
+
+// Bind an option row to its option OBJECT reference — no captured index, so
+// deleting an earlier option never mis-targets later rows (fixes stale-closure).
+function wireOptRow(v, el, opt) {
+  el.querySelectorAll('[data-opt]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      opt[inp.dataset.opt] = inp.value;
+      touch(v);
+    });
+  });
+  el.querySelector('.opt-del').addEventListener('click', () => {
+    const idx = v.type_config.options.indexOf(opt);
+    if (idx !== -1) v.type_config.options.splice(idx, 1);
+    el.remove();
+    touch(v);
+  });
+}
+
+// ─── Build JSON (export shape) ─────────────────────────────────────────────────
+function buildJson() {
+  // Reuse the shared exporter so client and server agree on the wire shape
+  // (omits empty category, coerces numbers, keeps type_config only for select).
+  return vars.map(v => V.toExport(dataOf(v)));
+}
+
+// ─── Persistence: per-variable save to the shared server ─────────────────────────
+function scheduleSave(v) {
+  clearTimeout(saveTimers[v.uid]);
+  saveTimers[v.uid] = setTimeout(() => saveVar(v), SAVE_DEBOUNCE);
+}
+
+// A variable is "busy" (must not be overwritten by an incoming poll) if it has
+// unsaved edits, a save in flight, a pending debounce/retry timer, or focus.
+function isBusy(v, focusedUid) {
+  return v._dirty || v._saving || saveTimers[v.uid] !== undefined || v.uid === focusedUid;
+}
+
+async function saveVar(v) {
+  delete saveTimers[v.uid];
+  v._saving = true;
+  setSync('saving', 'saving…');
+  let res;
+  try {
+    res = await api('PUT', `/api/variables/${v.uid}`, { version: v.version, data: dataOf(v) });
+  } finally {
+    v._saving = false;
+  }
+
+  if (res.status === 404) {
+    // Deleted by someone else while we were editing — drop it locally.
+    vars = vars.filter(x => x.uid !== v.uid);
+    const row = document.getElementById(`row-${v.uid}`);
+    if (row) row.remove();
+    const ex = document.getElementById(`extra-${v.uid}`);
+    if (ex) ex.remove();
+    renderChrome(); update();
+    setSync('synced', 'synced');
+    return;
+  }
+
+  if (res.status === 409) {
+    // Someone else changed THIS variable first.
+    const server = res.json.variable;
+    const focusedUid = focusedRowUid();
+    if (v.uid === focusedUid) {
+      // The user is actively editing — keep their input, rebase onto the new
+      // server version, and resubmit so their change lands on top (they win).
+      v.version = server.version;
+      v._dirty = true;
+      setSync('conflict', 're-applying your change');
+      scheduleSave(v);
+    } else {
+      // Not focused — server wins; adopt its state IN PLACE and refresh the row.
+      Object.assign(v, toRecord(server));
+      refreshRow(v);
+      renderLiveEditors();   // refreshRow wiped the live-slot — restore overlays
+      flashRow(v.uid);
+      setSync('synced', 'synced');
+    }
+    update();
+    return;
+  }
+
+  if (!res.ok) {
+    setSync('offline', 'offline — retrying');
+    cacheOffline();
+    clearTimeout(saveTimers[v.uid]);          // never stack retry timers
+    saveTimers[v.uid] = setTimeout(() => saveVar(v), 2000);
+    return;
+  }
+
+  v.version = res.json.variable.version;
+  v._meta = res.json.variable._meta || v._meta;   // adopt server attribution (updated_by/at)
+  v._dirty = false;
+  refreshAttribution(v);                            // update the row's "edited by" avatar
+  // localRev intentionally NOT set here — see addVar note. The next poll will
+  // reconcile any concurrent remote changes bundled into this revision.
+  if (!Object.keys(saveTimers).length) setSync('synced', 'saved');
+}
+
+async function deleteVar(v) {
+  const label = (v.display_name || v.id || '').trim();
+  const named = label ? `“${label}”` : 'this variable';
+  if (!confirm(`Remove ${named} from the SHARED list? This affects everyone.`)) return;
+  clearTimeout(saveTimers[v.uid]);
+  const res = await api('DELETE', `/api/variables/${v.uid}`);
+  if (!res.ok && res.status !== 404) { setSync('offline', 'delete failed'); return; }
+  vars = vars.filter(x => x.uid !== v.uid);
+  const row = document.getElementById(`row-${v.uid}`);
+  if (row) row.remove();
+  const extra = document.getElementById(`extra-${v.uid}`);
+  if (extra) extra.remove();
+  renderChrome();
+  update();
+  setSync('synced', 'saved');
+}
+
+function flashRow(uid) {
+  const row = document.getElementById(`row-${uid}`);
+  if (!row) return;
+  row.classList.remove('remote-update');
+  void row.offsetWidth;                 // restart animation
+  row.classList.add('remote-update');
+}
+
+// Offline cache — last-known-good only; never wins over a live server fetch.
+function cacheOffline() {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(buildJson())); } catch {}
+}
+
+// Which variable's row currently holds focus (or null).
+function focusedRowUid() {
+  const a = document.activeElement;
+  const rowEl = a && a.closest && a.closest('.var-row');
+  return rowEl ? Number(rowEl.id.replace('row-', '')) : null;
+}
+
+// ─── Initial load + polling sync ─────────────────────────────────────────────────
+async function loadFromServer() {
+  const res = await api('GET', '/api/variables');
+  if (!res.ok) { setSync('offline', 'offline'); return false; }
+  vars = res.json.variables.map(toRecord);
+  localRev = res.json.revision;
+  renderAll();                          // clean full render (no per-row flash)
+  applyPresence(res.json.presence);     // seed presence from the first fetch
+  setSync('synced', 'synced');
+  return true;
+}
+
+// ─── View: per-user filter + sort (display-only, never touches server order) ──
+// This is a pure VIEW layer over `vars`: it reorders and hides existing row DOM
+// nodes (never rebuilds them), so it composes safely with the live-reconcile
+// engine — a background poll or your own typing is never disrupted by a sort.
+const VIEW_KEY = 'bc-variable-builder-view';
+const view = {
+  sortKey: 'created',   // created | display_name | id | type | default_value | category | is_overridable
+  sortDir: 'asc',       // asc | desc  (for 'created', asc = oldest first)
+  search: '',
+  types: [],            // subset of the 6 types; empty = all
+  category: '',         // exact category; '' = all
+  editableOnly: false,
+  dupesOnly: false,
+};
+
+function loadView() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(VIEW_KEY) || '{}');
+    Object.assign(view, saved);
+    if (!Array.isArray(view.types)) view.types = [];
+  } catch {}
+}
+function saveView() {
+  try { localStorage.setItem(VIEW_KEY, JSON.stringify(view)); } catch {}
+}
+
+// Does a variable pass the active filters? (The focused row is always kept
+// visible by the caller, so you never lose the field you're editing.)
+function matchesFilters(v) {
+  if (view.types.length && !view.types.includes(v.type)) return false;
+  if (view.category && v.category !== view.category) return false;
+  if (view.editableOnly && !v.is_overridable) return false;
+  if (view.search) {
+    const q = view.search.toLowerCase();
+    const hay = [v.display_name, v.id, String(v.default_value), v.category]
+      .join(' ').toLowerCase();
+    if (!hay.includes(q)) return false;
+  }
+  return true;
+}
+
+function compareVars(a, b) {
+  const dir = view.sortDir === 'desc' ? -1 : 1;
+  if (view.sortKey === 'created') return (a.uid - b.uid) * dir;   // uid is monotonic creation order
+  if (view.sortKey === 'is_overridable') {
+    return ((a.is_overridable ? 1 : 0) - (b.is_overridable ? 1 : 0)) * dir;
+  }
+  const av = String(a[view.sortKey] ?? '');
+  const bv = String(b[view.sortKey] ?? '');
+  // Numeric-aware, case-insensitive comparison.
+  return av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' }) * dir;
+}
+
+// Apply the current view: order visible rows, hide filtered-out ones. Operates
+// purely on existing DOM nodes; safe to call any time without losing focus.
+function applyView() {
+  const dupIds = duplicateIdSet();
+  const focusedUid = focusedRowUid();
+  const container = document.getElementById('rows-container');
+  if (!container) return;
+
+  const ordered = vars.slice().sort(compareVars);
+  let visible = 0;
+
+  ordered.forEach(v => {
+    const row = document.getElementById(`row-${v.uid}`);
+    if (!row) return;
+    // Duplicates filter uses the live dup set; focused row is never hidden.
+    let show = matchesFilters(v) && (!view.dupesOnly || dupIds.has(v.id));
+    if (v.uid === focusedUid) show = true;
+    row.classList.toggle('filtered-out', !show);
+    const ex = document.getElementById(`extra-${v.uid}`);
+    if (ex) ex.classList.toggle('filtered-out', !show);
+    if (show) {
+      container.appendChild(row);                // move into sorted position
+      if (ex) container.appendChild(ex);
+      visible++;
+    }
+  });
+
+  // No-match state when filters hide everything (but there ARE variables).
+  const nomatch = document.getElementById('nomatch-state');
+  if (nomatch) nomatch.style.display = (vars.length > 0 && visible === 0) ? '' : 'none';
+
+  syncViewControls(visible);
+}
+
+// The set of ids that appear on more than one variable (for the dupes filter).
+function duplicateIdSet() {
+  const counts = new Map();
+  vars.forEach(v => { if (v.id) counts.set(v.id, (counts.get(v.id) || 0) + 1); });
+  const dupes = new Set();
+  counts.forEach((n, id) => { if (n > 1) dupes.add(id); });
+  return dupes;
+}
+
+// Reflect view state into the controls (active states, arrows, counts, chips).
+function syncViewControls(visibleCount) {
+  // Column header sort arrows.
+  document.querySelectorAll('.table-head .sortable').forEach(h => {
+    const key = h.dataset.sort;
+    h.classList.toggle('sort-asc',  view.sortKey === key && view.sortDir === 'asc');
+    h.classList.toggle('sort-desc', view.sortKey === key && view.sortDir === 'desc');
+  });
+  // Created sort button.
+  const sc = document.getElementById('sort-created');
+  if (sc) {
+    const on = view.sortKey === 'created';
+    sc.classList.toggle('active', on);
+    sc.textContent = 'Created ' + (on ? (view.sortDir === 'asc' ? '↑ oldest' : '↓ newest') : '↕');
+  }
+  // Type chips.
+  document.querySelectorAll('#type-chips .chip').forEach(c => {
+    c.classList.toggle('active', view.types.includes(c.dataset.type));
+  });
+  // Flag chips.
+  const ed = document.getElementById('f-editable');
+  if (ed) ed.classList.toggle('active', view.editableOnly);
+  const du = document.getElementById('f-dupes');
+  if (du) du.classList.toggle('active', view.dupesOnly);
+  // Category select.
+  const cat = document.getElementById('f-category');
+  if (cat) cat.classList.toggle('active', !!view.category);
+  // Search clear button.
+  const clr = document.getElementById('fs-clear');
+  if (clr) clr.style.display = view.search ? '' : 'none';
+  // Count tag reflects filtered count when a filter is active.
+  const active = view.search || view.types.length || view.category || view.editableOnly || view.dupesOnly;
+  const tag = document.getElementById('count-tag');
+  if (tag) {
+    tag.textContent = active
+      ? `${visibleCount} of ${vars.length} shown`
+      : `${vars.length} variable${vars.length !== 1 ? 's' : ''}`;
+  }
+}
+
+// Keep the category dropdown in sync with the categories present in the list.
+function refreshCategoryOptions() {
+  const sel = document.getElementById('f-category');
+  if (!sel) return;
+  const cats = [...new Set(vars.map(v => v.category).filter(Boolean))].sort(
+    (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  const current = view.category;
+  sel.innerHTML = '<option value="">All categories</option>' +
+    cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  // Restore selection if it still exists; otherwise clear the filter.
+  if (current && cats.includes(current)) sel.value = current;
+  else if (current) { view.category = ''; saveView(); }
+}
+
+function setSort(key) {
+  if (view.sortKey === key) {
+    view.sortDir = view.sortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    view.sortKey = key;
+    view.sortDir = key === 'created' ? 'desc' : 'asc';   // created defaults to newest-first
+  }
+  saveView();
+  applyView();
+}
+
+function resetFilters() {
+  view.sortKey = 'created'; view.sortDir = 'desc';
+  view.search = ''; view.types = []; view.category = '';
+  view.editableOnly = false; view.dupesOnly = false;
+  const s = document.getElementById('f-search'); if (s) s.value = '';
+  const c = document.getElementById('f-category'); if (c) c.value = '';
+  saveView();
+  refreshCategoryOptions();
+  applyView();
+}
+
+// Wire up all the filter/sort controls once, at init.
+function wireViewControls() {
+  document.querySelectorAll('.table-head .sortable').forEach(h => {
+    h.addEventListener('click', () => setSort(h.dataset.sort));
+  });
+  const sc = document.getElementById('sort-created');
+  if (sc) sc.addEventListener('click', () => setSort('created'));
+
+  const search = document.getElementById('f-search');
+  if (search) {
+    search.value = view.search;
+    search.addEventListener('input', () => { view.search = search.value.trim(); saveView(); applyView(); });
+  }
+  const clr = document.getElementById('fs-clear');
+  if (clr) clr.addEventListener('click', () => {
+    view.search = ''; search.value = ''; search.focus(); saveView(); applyView();
+  });
+
+  document.querySelectorAll('#type-chips .chip').forEach(c => {
+    c.addEventListener('click', () => {
+      const t = c.dataset.type;
+      const i = view.types.indexOf(t);
+      if (i === -1) view.types.push(t); else view.types.splice(i, 1);
+      saveView(); applyView();
+    });
+  });
+
+  const cat = document.getElementById('f-category');
+  if (cat) cat.addEventListener('change', () => { view.category = cat.value; saveView(); applyView(); });
+
+  const ed = document.getElementById('f-editable');
+  if (ed) ed.addEventListener('click', () => { view.editableOnly = !view.editableOnly; saveView(); applyView(); });
+  const du = document.getElementById('f-dupes');
+  if (du) du.addEventListener('click', () => { view.dupesOnly = !view.dupesOnly; saveView(); applyView(); });
+
+  const reset = document.getElementById('filter-reset');
+  if (reset) reset.addEventListener('click', resetFilters);
+}
+
+/*
+ * Reconcile the local list with the server's, INCREMENTALLY.
+ * We never rebuild the whole table on a poll — that would disturb the row the
+ * user is typing in. Instead:
+ *   - busy rows (unsaved / in-flight / focused) are left entirely untouched,
+ *     and any pending saveVar() keeps mutating the SAME live object;
+ *   - non-busy existing rows adopt server data IN PLACE (same object ref) and
+ *     only re-render if their data actually changed;
+ *   - new uids are appended; deleted uids are removed.
+ */
+function applyServerList(records, revision) {
+  const focusedUid = focusedRowUid();
+  const prev = new Map(vars.map(v => [v.uid, v]));
+  const seen = new Set();
+  const container = document.getElementById('rows-container');
+
+  const next = records.map(rec => {
+    seen.add(rec.uid);
+    const old = prev.get(rec.uid);
+    if (!old) {
+      const r = toRecord(rec);
+      renderRow(r);                                  // brand-new row from a teammate
+      flashRow(r.uid);
+      return r;
+    }
+    if (isBusy(old, focusedUid)) return old;         // protect in-flight/edited/focused
+    const fresh = toRecord(rec);
+    const changed = JSON.stringify(dataOf(old)) !== JSON.stringify(dataOf(fresh));
+    const prevMeta = JSON.stringify(old._meta);
+    fresh._expanded = old._expanded;
+    Object.assign(old, fresh);                       // adopt server data in place
+    if (changed) { refreshRow(old); flashRow(old.uid); }
+    // Attribution (_meta) is excluded from dataOf, so a remote re-save that only
+    // bumps updated_by/at won't set `changed` — repaint just the avatar so it
+    // doesn't go stale. refreshAttribution touches only .attr-slot (focus-safe).
+    else if (JSON.stringify(old._meta) !== prevMeta) refreshAttribution(old);
+    return old;
+  });
+
+  // Remove rows deleted on the server (unless busy — keep the user's work).
+  vars.forEach(v => {
+    if (!seen.has(v.uid) && !isBusy(v, focusedUid)) {
+      const row = document.getElementById(`row-${v.uid}`);
+      if (row) row.remove();
+      const ex = document.getElementById(`extra-${v.uid}`);
+      if (ex) ex.remove();
+    }
+  });
+
+  // Keep busy rows that the server dropped, so pending edits aren't lost; they
+  // reconcile on their own next save (404 -> removed, or re-created).
+  const keptBusy = vars.filter(v => !seen.has(v.uid) && isBusy(v, focusedUid));
+  vars = next.concat(keptBusy);
+
+  // Reorder DOM to match server order (moves are cheap; focused node preserved).
+  reorderRows();
+  localRev = revision;
+  renderChrome();
+  update();
+  renderLiveEditors();   // rows may have been re-rendered/added — restore overlays
+}
+
+// Put row DOM nodes in the order of the current view, without recreating them.
+// (applyView owns ordering now — this is just the hook applyServerList calls.)
+function reorderRows() {
+  applyView();
+}
+
+function renderAll() {
+  const container = document.getElementById('rows-container');
+  container.innerHTML = '';
+  vars.forEach(renderRow);
+  renderChrome();
+  update();
+  applyView();
+  renderLiveEditors();
+}
+
+// Poll for others' changes; incremental apply is focus-safe so we always apply.
+async function poll() {
+  const res = await api('GET', '/api/variables');
+  if (!res.ok) { setSync('offline', 'offline'); return; }
+  // Presence is applied EVERY poll, independent of the data revision — it must
+  // update "who's editing" even when the variable list itself hasn't changed.
+  applyPresence(res.json.presence);
+  if (res.json.revision !== localRev) {
+    applyServerList(res.json.variables, res.json.revision);
+    if (!Object.keys(saveTimers).length) setSync('synced', 'synced');
+  } else if (!Object.keys(saveTimers).length) {
+    setSync('synced', 'synced');
+  }
+}
+
+// ─── Update preview + stats ───────────────────────────────────────────────────
+function update() {
+  const data = buildJson();
+  const n = data.length;
+
+  document.getElementById('dl-btn').disabled = n === 0;
+  document.getElementById('s-total').textContent  = n;
+  document.getElementById('s-ovrd').textContent   = data.filter(v => v.is_overridable).length;
+  document.getElementById('s-cat').textContent    = data.filter(v => v.category).length;
+
+  flagDuplicateIds();
+  refreshCategoryOptions();
+  syncViewControls(countVisible());   // owns count-tag (filtered-aware), arrows, chips
+
+  if (n === 0) {
+    document.getElementById('json-output').innerHTML = '<span style="color:var(--muted)">// empty</span>';
+    return;
+  }
+  document.getElementById('json-output').innerHTML = highlight(JSON.stringify({ custom: data }, null, 2));
+}
+
+// How many variables currently pass the filters (focused row always counts).
+function countVisible() {
+  const dupIds = duplicateIdSet();
+  const focusedUid = focusedRowUid();
+  return vars.reduce((n, v) => {
+    let show = matchesFilters(v) && (!view.dupesOnly || dupIds.has(v.id));
+    if (v.uid === focusedUid) show = true;
+    return n + (show ? 1 : 0);
+  }, 0);
+}
+
+// Highlight rows whose id collides with another row's id, so contributors can
+// see duplicates before they matter downstream. (The server also auto-suffixes
+// ids on import; this catches collisions created by live editing.)
+function flagDuplicateIds() {
+  const counts = new Map();
+  vars.forEach(v => { if (v.id) counts.set(v.id, (counts.get(v.id) || 0) + 1); });
+  let dupes = 0;
+  vars.forEach(v => {
+    const row = document.getElementById(`row-${v.uid}`);
+    if (!row) return;
+    const idInput = row.querySelector('.f-id');
+    const bad = v.id && counts.get(v.id) > 1;
+    if (idInput) {
+      idInput.classList.toggle('dup-id', !!bad);
+      idInput.title = bad ? `Duplicate id "${v.id}" — used by ${counts.get(v.id)} variables` : '';
+    }
+    if (bad) dupes++;
+  });
+  const badge = document.getElementById('dup-badge');
+  if (badge) {
+    badge.style.display = dupes ? '' : 'none';
+    badge.textContent = dupes ? `⚠ ${dupes} duplicate id${dupes !== 1 ? 's' : ''}` : '';
+  }
+}
+
+// Derive table-head / empty-state / download-button visibility from state
+// (single source of truth — replaces the scattered manual toggles).
+function renderChrome() {
+  const has = vars.length > 0;
+  document.getElementById('table-head').style.display = has ? 'flex' : 'none';
+  document.getElementById('empty-state').style.display = has ? 'none' : '';
+  document.getElementById('filterbar').style.display = has ? 'flex' : 'none';
+  document.getElementById('dl-btn').disabled = !has;
+  if (!has) {
+    const nm = document.getElementById('nomatch-state');
+    if (nm) nm.style.display = 'none';
+  }
+}
+
+function highlight(json) {
+  return json
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
+      if (/^"/.test(m)) return /:$/.test(m) ? `<span class="jk">${m}</span>` : `<span class="jv">${m}</span>`;
+      if (m === 'true' || m === 'false') return `<span class="jb">${m}</span>`;
+      if (m === 'null') return `<span class="jb">${m}</span>`;
+      return `<span class="jn">${m}</span>`;
+    });
+}
+
+// ─── UI helpers ───────────────────────────────────────────────────────────────
+function showHead() { renderChrome(); }
+
+async function clearAll() {
+  if (!vars.length) return;
+  if (!confirm(`Remove all ${vars.length} variable(s) from the SHARED list? This affects everyone.`)) return;
+  const res = await api('DELETE', '/api/variables');
+  if (!res.ok) { setSync('offline', 'clear failed'); return; }
+  vars = [];
+  document.getElementById('rows-container').innerHTML = '';
+  // Leave localRev unset so the next poll re-syncs (a concurrent add would
+  // survive the clear server-side and should re-appear).
+  renderChrome();
+  update();
+  setSync('synced', 'saved');
+}
+
+function downloadJson() {
+  const payload = { custom: buildJson() };
+  const json = JSON.stringify(payload, null, 2);
+  const a = document.createElement('a');
+  a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
+  a.download = 'variables.json';
+  a.click();
+}
+
+function copyJson() {
+  navigator.clipboard.writeText(JSON.stringify({ custom: buildJson() }, null, 2)).then(() => {
+    const btn = document.getElementById('copy-btn');
+    const prev = btn.textContent;
+    btn.textContent = '✓ Copied';
+    btn.style.color = 'var(--success)';
+    btn.style.borderColor = 'var(--success)';
+    setTimeout(() => {
+      btn.textContent = prev;
+      btn.style.color = '';
+      btn.style.borderColor = '';
+    }, 1600);
+  });
+}
+
+function defPlaceholder(t) {
+  return { string: 'e.g. Hello World', integer: 'e.g. 16', decimal: 'e.g. 1.5', image: 'https://…' }[t] || '';
+}
+
+function triggerImport() {
+  document.getElementById('import-input').value = '';
+  document.getElementById('import-input').click();
+}
+
+// Import APPENDS to the shared list (server-side), so it never nukes others'
+// work. The server coerces every item and makes ids unique across the list.
+function importJson(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    let data;
+    try { data = JSON.parse(e.target.result); }
+    catch { alert('Invalid JSON file.'); return; }
+
+    let list;
+    if (Array.isArray(data)) list = data;
+    else if (data && Array.isArray(data.custom)) list = data.custom;
+    else if (data && Array.isArray(data.variables)) list = data.variables;
+    else { alert('Expected a variables JSON array or an object with a "custom" array.'); return; }
+
+    if (!list.length) return;
+    if (!confirm(`Import ${list.length} variable(s) into the shared list? They will be ADDED to the existing ${vars.length}.`)) return;
+
+    setSync('saving', 'importing…');
+    const res = await api('POST', '/api/variables/bulk', { variables: list });
+    if (!res.ok) { setSync('offline', 'import failed'); alert('Import failed.'); return; }
+    applyServerList(res.json.variables, res.json.revision);
+    setSync('synced', `imported ${res.json.added}`);
+  };
+  reader.readAsText(file);
+}
+
+// Attribute-safe escape: covers & " ' < > ` so contributor-supplied values
+// can't break out of an attribute or inject markup (stored-XSS defense).
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/`/g, '&#96;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// ─── Init: load the shared list, then poll for others' changes ────────────────
+async function init() {
+  loadIdentity();
+  renderMeTag();
+  const meTag = document.getElementById('me-tag');
+  if (meTag) meTag.addEventListener('click', () => promptName(false));
+
+  loadView();
+  wireViewControls();
+  const ok = await loadFromServer();
+  if (!ok) {
+    // Offline fallback: show last-known-good cache read-only-ish until server returns.
+    try {
+      const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || '[]');
+      if (Array.isArray(cached) && cached.length) {
+        vars = cached.map((c, i) => toRecord(Object.assign({ uid: -1 - i, version: 0 }, c)));
+        renderAll();
+      }
+    } catch {}
+  }
+  ensureName();                       // prompt for a name on first visit
+  setInterval(poll, POLL_MS);
+  // Refresh "edited Nm ago" tooltips periodically without re-rendering rows.
+  setInterval(() => vars.forEach(refreshAttribution), 60000);
+  // Best-effort "I'm leaving" so my editing flag clears fast for teammates.
+  window.addEventListener('beforeunload', () => {
+    cacheOffline();
+    try {
+      const blob = new Blob([JSON.stringify({})], { type: 'application/json' });
+      // sendBeacon can't set custom headers; include identity in the URL instead.
+      navigator.sendBeacon(
+        `/api/presence?leave=1&id=${encodeURIComponent(myWireId())}`, blob);
+    } catch {}
+  });
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+# Railway deployment config for the Variable Builder.
+# Nixpacks auto-detects Node from package.json — no Dockerfile needed.
+# Only dependency is express (pure JS) — nothing to compile.
+
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "npm start"
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+# IMPORTANT: attach a Volume to this service in the Railway dashboard and set
+# its mount path (e.g. /data). Railway exposes it as RAILWAY_VOLUME_MOUNT_PATH,
+# which server.js uses for the JSON store. Without a Volume, the file lives on
+# the ephemeral container disk and is WIPED on every redeploy.
