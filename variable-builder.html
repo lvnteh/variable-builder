@@ -889,9 +889,136 @@ pre#json-output {
 .crumb-sep { color: var(--muted); }
 .library-trash { margin-top: 28px; font-size: 13px; }
 .library-trash .trash-item { display: flex; gap: 10px; align-items: center; padding: 4px 0; color: var(--muted); }
+
+/* ─── Modal dialog (design-native replacement for prompt/confirm/alert) ──── */
+/* One reusable host (#modal-overlay) drives every dialog. It scrims the shell,
+   traps focus, and closes on Esc / backdrop click / a button choice. Styling is
+   pure Fiori Horizon tokens so it reads as part of the app, not a browser chrome
+   popup. */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(29, 45, 62, 0.35);   /* --text at low alpha — Fiori scrim */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1.5rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+.modal-overlay.open { opacity: 1; pointer-events: auto; }
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;                /* softer than list rows — this is a shell dialog */
+  box-shadow: 0 8px 28px rgba(29, 45, 62, 0.22), 0 2px 8px rgba(29, 45, 62, 0.12);
+  width: 100%;
+  max-width: 26rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: translateY(6px) scale(0.98);
+  transition: transform 0.14s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.modal-overlay.open .modal { transform: translateY(0) scale(1); }
+/* A top accent rule ties the dialog to the header's accent underline. Danger
+   dialogs (destructive confirms) recolour it + the primary button. */
+.modal { border-top: 3px solid var(--accent); }
+.modal.is-danger { border-top-color: var(--danger); }
+
+.modal-header {
+  padding: 1rem 1.25rem 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.modal-title {
+  font-family: var(--sans);
+  font-size: var(--fs-base);
+  font-weight: var(--fw-bold);
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+
+.modal-body {
+  padding: 0.25rem 1.25rem 0.75rem;
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  color: var(--sub);
+  line-height: 1.5;
+}
+.modal-body p { margin: 0; }
+.modal-body strong { color: var(--text); font-weight: var(--fw-bold); }
+
+.modal-input {
+  width: 100%;
+  margin-top: 0.75rem;
+  height: 2.25rem;
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  padding: 0 0.625rem;
+  outline: none;
+  transition: border-color 0.1s, box-shadow 0.1s;
+}
+.modal-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-bg); }
+.modal-input::placeholder { color: var(--muted); }
+
+.modal-footer {
+  padding: 0.75rem 1.25rem 1rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.modal-btn {
+  height: 2rem;
+  padding: 0 1rem;
+  border-radius: var(--radius);
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+  border: 1px solid transparent;
+}
+/* Secondary (Cancel): transparent, quiet until hover. */
+.modal-btn.secondary {
+  background: transparent;
+  border-color: var(--border-hi);
+  color: var(--sub);
+  font-weight: var(--fw-regular);
+}
+.modal-btn.secondary:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+/* Primary (OK / confirm): filled accent, or danger red on destructive dialogs. */
+.modal-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.modal-btn.primary:hover { background: #0064d9; border-color: #0064d9; }
+.modal-btn.primary.is-danger { background: var(--danger); border-color: var(--danger); }
+.modal-btn.primary.is-danger:hover { background: #a30000; border-color: #a30000; }
 </style>
 </head>
 <body>
+
+<!-- MODAL HOST — one reusable dialog drives prompt/confirm/alert (see openModal) -->
+<div class="modal-overlay" id="modal-overlay" role="presentation">
+  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title"></span>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer"></div>
+  </div>
+</div>
 
 <!-- HEADER -->
 <header>
@@ -1312,11 +1439,13 @@ function renderMeTag() {
     `<span class="me-name">${esc(me.name || 'Set your name')}</span>`;
 }
 
-function promptName(initial) {
+async function promptName(initial) {
   const current = me.name;
-  const next = window.prompt(
-    initial ? 'Your name (so teammates can see who edits what):' : 'Change your display name:',
-    current || ''
+  const next = await uiPrompt(
+    initial ? 'Welcome' : 'Change your name',
+    initial ? 'Enter your name so teammates can see who edits what:' : 'Update your display name:',
+    current || '',
+    { placeholder: 'Your name' }
   );
   if (next == null) return;                         // cancelled
   const cleaned = cleanName(next);
@@ -1709,7 +1838,9 @@ async function deleteVar(v) {
   if (currentSetId == null) return;
   const label = (v.display_name || v.id || '').trim();
   const named = label ? `“${label}”` : 'this variable';
-  if (!confirm(`Remove ${named} from the SHARED list? This affects everyone.`)) return;
+  if (!(await uiConfirm('Remove variable',
+    `Remove ${named} from the shared list? This affects everyone.`,
+    { okText: 'Remove', danger: true }))) return;
   clearTimeout(saveTimers[v.uid]);
   const res = await api('DELETE', `/api/sets/${currentSetId}/variables/${v.uid}`);
   if (res.status === 404 && res.json && res.json.error === 'set_not_found') { onSetDeleted(); return; }
@@ -2112,7 +2243,7 @@ function onSetDeleted() {
     const draft = buildJson();
     if (draft.length) localStorage.setItem(`draft_${currentSetId}`, JSON.stringify(draft));
   } catch {}
-  alert('This set was deleted by someone else. Your in-progress changes were saved locally — use Import to recover them into a new set.');
+  uiAlert('Set deleted', 'This set was deleted by someone else. Your in-progress changes were saved locally — use Import to recover them into a new set.', { danger: true });
   currentSetId = null;
   try { localStorage.removeItem(CURRENT_SET_KEY); } catch {}
   applyViewMode();
@@ -2131,7 +2262,7 @@ async function loadLibrary() {
 
 // ─── Set-action handlers (cards + breadcrumb) ──────────────────────────────
 async function createSetPrompt() {
-  const name = prompt('Name your new set:', 'New set');
+  const name = await uiPrompt('New set', 'Name your new variable set:', 'New set', { placeholder: 'Set name', okText: 'Create' });
   if (name == null) return;
   const res = await api('POST', '/api/library', { name: name.trim() || 'Untitled set' });
   if (res.ok && res.json.set) { await loadLibrary(); openSet(res.json.set.setId); }
@@ -2142,10 +2273,10 @@ async function duplicateSet(setId) {
 }
 async function renameSetPromptFor(setId, version) {
   const entry = sets.find(s => s.setId === setId);
-  const name = prompt('Rename set:', entry ? entry.name : '');
+  const name = await uiPrompt('Rename set', 'Give this set a new name:', entry ? entry.name : '', { placeholder: 'Set name', okText: 'Rename' });
   if (name == null) return;
   const res = await api('PUT', `/api/library/${setId}`, { name: name.trim(), version });
-  if (res.status === 409) { await loadLibrary(); alert('That set was renamed by someone else — try again.'); return; }
+  if (res.status === 409) { await loadLibrary(); uiAlert('Rename conflict', 'That set was renamed by someone else — try again.'); return; }
   await loadLibrary();
   if (setId === currentSetId) applyViewMode();   // refresh breadcrumb
 }
@@ -2154,7 +2285,7 @@ function renameSetPrompt() {                       // from the editor breadcrumb
   if (entry) renameSetPromptFor(currentSetId, entry.version);
 }
 async function deleteSet(setId, name) {
-  if (!confirm(`Delete "${name}"? It moves to trash and can be restored.`)) return;
+  if (!(await uiConfirm('Delete set', `Delete “${name}”? It moves to trash and can be restored.`, { okText: 'Delete', danger: true }))) return;
   const res = await api('DELETE', `/api/library/${setId}`);
   if (res.ok) { if (setId === currentSetId) { currentSetId = null; applyViewMode(); } await loadLibrary(); }
 }
@@ -2280,7 +2411,9 @@ function showHead() { renderChrome(); }
 async function clearAll() {
   if (currentSetId == null) return;
   if (!vars.length) return;
-  if (!confirm(`Remove all ${vars.length} variable(s) from the SHARED list? This affects everyone.`)) return;
+  if (!(await uiConfirm('Clear all variables',
+    `Remove all ${vars.length} variable(s) from the shared list? This affects everyone.`,
+    { okText: 'Clear all', danger: true }))) return;
   const res = await api('DELETE', `/api/sets/${currentSetId}/variables`);
   if (res.status === 404) { onSetDeleted(); return; }
   if (!res.ok) { setSync('offline', 'clear failed'); return; }
@@ -2336,21 +2469,23 @@ function importJson(event) {
   reader.onload = async (e) => {
     let data;
     try { data = JSON.parse(e.target.result); }
-    catch { alert('Invalid JSON file.'); return; }
+    catch { uiAlert('Import failed', 'That file is not valid JSON.', { danger: true }); return; }
 
     let list;
     if (Array.isArray(data)) list = data;
     else if (data && Array.isArray(data.custom)) list = data.custom;
     else if (data && Array.isArray(data.variables)) list = data.variables;
-    else { alert('Expected a variables JSON array or an object with a "custom" array.'); return; }
+    else { uiAlert('Import failed', 'Expected a variables JSON array or an object with a "custom" array.', { danger: true }); return; }
 
     if (!list.length) return;
-    if (!confirm(`Import ${list.length} variable(s) into the shared list? They will be ADDED to the existing ${vars.length}.`)) return;
+    if (!(await uiConfirm('Import variables',
+      `Import ${list.length} variable(s) into the shared list? They will be ADDED to the existing ${vars.length}.`,
+      { okText: 'Import' }))) return;
 
     setSync('saving', 'importing…');
     const res = await api('POST', `/api/sets/${currentSetId}/variables/bulk`, { variables: list });
     if (res.status === 404) { onSetDeleted(); return; }
-    if (!res.ok) { setSync('offline', 'import failed'); alert('Import failed.'); return; }
+    if (!res.ok) { setSync('offline', 'import failed'); uiAlert('Import failed', 'The server rejected the import.', { danger: true }); return; }
     applyServerList(res.json.variables, res.json.revision);
     setSync('synced', `imported ${res.json.added}`);
   };
@@ -2367,6 +2502,113 @@ function esc(s) {
     .replace(/`/g, '&#96;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+// ─── Modal dialogs (design-native prompt/confirm/alert) ────────────────────────
+// One overlay host, driven by openModal(). Each of the three helpers returns a
+// Promise so call sites read almost identically to the native calls they
+// replace:  const name = await uiPrompt(...);  if (await uiConfirm(...)) {...}
+// Only one dialog is shown at a time; a second call while one is open closes the
+// first (resolving it as cancelled) so we never stack overlays.
+let modalResolve = null;      // resolver for the dialog currently open (or null)
+let modalKeyHandler = null;   // active Esc/Enter key handler, so we can detach it
+
+function closeModal(result) {
+  const overlay = document.getElementById('modal-overlay');
+  overlay.classList.remove('open');
+  if (modalKeyHandler) { document.removeEventListener('keydown', modalKeyHandler); modalKeyHandler = null; }
+  const resolve = modalResolve;
+  modalResolve = null;
+  if (resolve) resolve(result);
+}
+
+/*
+ * Open the shared dialog. opts:
+ *   title    — heading text
+ *   message  — body text (plain; escaped)
+ *   input    — if true, show a text field (prompt mode); its string is returned
+ *   value    — initial input value
+ *   placeholder — input placeholder
+ *   okText / cancelText — button labels ('' cancelText hides Cancel: alert mode)
+ *   danger   — style the confirm/OK button + accent as destructive
+ * Resolves to: the input string (prompt), true/false (confirm), or true (alert).
+ * Cancel / Esc / backdrop resolve to null (prompt) or false (confirm).
+ */
+function openModal(opts) {
+  const o = opts || {};
+  if (modalResolve) closeModal(o.input ? null : false);   // never stack dialogs
+
+  const overlay = document.getElementById('modal-overlay');
+  const dialog = document.getElementById('modal');
+  const body = document.getElementById('modal-body');
+  const footer = document.getElementById('modal-footer');
+  document.getElementById('modal-title').textContent = o.title || '';
+  dialog.classList.toggle('is-danger', !!o.danger);
+
+  const hasInput = !!o.input;
+  const cancelText = o.cancelText === undefined ? 'Cancel' : o.cancelText;
+  const okText = o.okText || 'OK';
+
+  body.innerHTML = o.message ? `<p>${esc(o.message)}</p>` : '';
+  if (hasInput) {
+    body.innerHTML +=
+      `<input type="text" class="modal-input" id="modal-input" ` +
+      `placeholder="${esc(o.placeholder || '')}" value="${esc(o.value || '')}">`;
+  }
+
+  footer.innerHTML =
+    (cancelText ? `<button class="modal-btn secondary" id="modal-cancel">${esc(cancelText)}</button>` : '') +
+    `<button class="modal-btn primary${o.danger ? ' is-danger' : ''}" id="modal-ok">${esc(okText)}</button>`;
+
+  const input = hasInput ? document.getElementById('modal-input') : null;
+  const okVal = () => (hasInput ? (input.value) : true);
+
+  const ok = () => closeModal(okVal());
+  const cancel = () => closeModal(hasInput ? null : false);
+
+  document.getElementById('modal-ok').addEventListener('click', ok);
+  const cancelBtn = document.getElementById('modal-cancel');
+  if (cancelBtn) cancelBtn.addEventListener('click', cancel);
+  // Backdrop click (outside the dialog) cancels.
+  overlay.onclick = (e) => { if (e.target === overlay) cancel(); };
+
+  modalKeyHandler = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+    else if (e.key === 'Enter' && (hasInput || document.activeElement !== cancelBtn)) {
+      // Enter confirms — from the input field or when focus isn't on Cancel.
+      e.preventDefault(); ok();
+    } else if (e.key === 'Tab') {
+      // Trap focus inside the dialog so Tab can't reach the scrimmed page.
+      const focusable = Array.from(dialog.querySelectorAll('input, button'))
+        .filter(el => !el.disabled && el.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  };
+  document.addEventListener('keydown', modalKeyHandler);
+
+  overlay.classList.add('open');
+  // Focus the input (prompt) or the primary button (confirm/alert), next frame
+  // so the transition doesn't swallow the focus ring.
+  requestAnimationFrame(() => {
+    if (input) { input.focus(); input.select(); }
+    else document.getElementById('modal-ok').focus();
+  });
+
+  return new Promise(resolve => { modalResolve = resolve; });
+}
+
+// Native-shaped wrappers. uiPrompt → string|null, uiConfirm → bool, uiAlert → true.
+function uiPrompt(title, message, value, extra) {
+  return openModal(Object.assign({ title, message, input: true, value: value || '', okText: 'OK' }, extra || {}));
+}
+function uiConfirm(title, message, extra) {
+  return openModal(Object.assign({ title, message, okText: 'Confirm' }, extra || {}));
+}
+function uiAlert(title, message, extra) {
+  return openModal(Object.assign({ title, message, cancelText: '', okText: 'OK' }, extra || {}));
 }
 
 // ─── Init: load the shared list, then poll for others' changes ────────────────

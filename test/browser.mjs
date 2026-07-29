@@ -27,18 +27,16 @@ function assert(cond, msg) {
 }
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-// Auto-answer dialogs by message content. `name` is used for the first-visit
-// name prompt; everything else uses sensible defaults (accept confirms, accept
-// prompts with their default). onAlert records the last alert text seen.
-function wireDialogs(page, name, state) {
-  page.on('dialog', async (d) => {
-    const msg = d.message();
-    if (d.type() === 'alert') { state.lastAlert = msg; await d.accept(); return; }
-    if (d.type() === 'confirm') { await d.accept(); return; }
-    // prompt
-    if (/your name|display name/i.test(msg)) { await d.accept(name); return; }
-    await d.accept(d.defaultValue() || 'X');   // set-name / rename prompts
-  });
+// Drive the in-app modal (design-native replacement for prompt/confirm/alert).
+// Waits for the overlay, fills its input if `value` is given and one exists,
+// then clicks OK (or Cancel). Resolves once the overlay has closed.
+async function answerModal(page, { value, action = 'ok' } = {}) {
+  await page.waitForSelector('#modal-overlay.open', { timeout: 8000 });
+  if (value !== undefined && await page.isVisible('#modal-input')) {
+    await page.fill('#modal-input', value);
+  }
+  await page.click(action === 'cancel' ? '#modal-cancel' : '#modal-ok');
+  await page.waitForSelector('#modal-overlay.open', { state: 'hidden', timeout: 8000 });
 }
 
 async function main() {
@@ -61,18 +59,18 @@ async function main() {
     pg.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(`[${who}] ${m.text()}`); });
     pg.on('pageerror', (e) => consoleErrors.push(`[${who}] pageerror: ${e.message}`));
   }
-  const stateA = {}, stateB = {};
-  wireDialogs(A, 'Alice', stateA);
-  wireDialogs(B, 'Bob', stateB);
 
   try {
-    // ── 1. Home renders; + New set → editor opens with empty-state copy ───────
+    // ── 1. Home renders; first-visit name modal; + New set → editor opens ─────
     await A.goto(BASE);
+    // On first visit the app shows a design-native name modal — name yourself.
+    await answerModal(A, { value: 'Alice' });
     await A.waitForSelector('#library-view');
     assert(await A.isVisible('#library-view'), 'A: library home is visible on load');
     assert(await A.isVisible('#library-empty'), 'A: empty-state shown (no sets yet)');
 
-    await A.click('#new-set-btn');             // prompt auto-accepts with "New set"
+    await A.click('#new-set-btn');             // opens the new-set modal
+    await answerModal(A, { value: 'New set' });
     await A.waitForSelector('#crumb-name:visible');
     assert(!(await A.isVisible('#library-view')), 'A: library home hidden after opening a set');
     assert(await A.isVisible('#empty-state'), 'A: editor empty-state shown for the new set');
@@ -101,6 +99,7 @@ async function main() {
 
     // ── 3. Both contexts open the SAME set; A focuses a row → B sees "editing" ─
     await B.goto(BASE);
+    await answerModal(B, { value: 'Bob' });    // B's first-visit name modal
     await B.waitForSelector('.set-card');
     await B.click('.set-card .set-actions button:has-text("Open")');
     await B.waitForSelector('.var-row');
@@ -123,6 +122,7 @@ async function main() {
     await B.click('#crumb-back');
     await B.waitForSelector('#new-set-btn');
     await B.click('#new-set-btn');             // B creates + opens its own set
+    await answerModal(B, { value: 'Bob set' });
     await B.waitForSelector('.var-row, #empty-state');
     await sleep(6000);
     const bPresence2 = (await B.textContent('#presence-count')) || '';
@@ -139,10 +139,14 @@ async function main() {
       const [base, sid] = args;
       await fetch(base + '/api/library/' + sid, { method: 'DELETE', headers: { 'X-VB-Client': 'a', 'X-VB-Name': 'Alice' } });
     }, [BASE, SID]);
-    // B's next poll gets a 404 → onSetDeleted fires: alert + draft + home.
+    // B's next poll gets a 404 → onSetDeleted fires: modal notice + draft + home.
     await sleep(6000);
-    assert(stateB.lastAlert && /deleted by someone else/i.test(stateB.lastAlert),
-      'B: got the "deleted by someone else" alert');
+    await B.waitForSelector('#modal-overlay.open', { timeout: 8000 });
+    const noticeTxt = (await B.textContent('#modal-body')) || '';
+    assert(/deleted by someone else/i.test(noticeTxt),
+      'B: got the "deleted by someone else" modal notice');
+    await B.click('#modal-ok');                // dismiss the notice
+    await B.waitForSelector('#modal-overlay.open', { state: 'hidden' });
     assert(await B.isVisible('#library-view'), 'B: returned to the library home after deletion');
     const draft = await B.evaluate((sid) => localStorage.getItem('draft_' + sid), SID);
     assert(draft && JSON.parse(draft).length >= 1, 'B: in-progress work stashed to draft_<setId> in localStorage');
