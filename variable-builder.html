@@ -2471,11 +2471,17 @@ function importJson(event) {
     try { data = JSON.parse(e.target.result); }
     catch { uiAlert('Import failed', 'That file is not valid JSON.', { danger: true }); return; }
 
+    // Accept a bare array, {variables:[…]}, or an Emarsys webchannel export
+    // ({system:[…], custom:[…]}). For the export shape, merge BOTH lists — the
+    // real variables usually live in `system`, and `custom` is often empty.
+    // (The server uniquifies ids, so any overlap between the two is handled.)
     let list;
     if (Array.isArray(data)) list = data;
-    else if (data && Array.isArray(data.custom)) list = data.custom;
+    else if (data && (Array.isArray(data.system) || Array.isArray(data.custom))) {
+      list = [].concat(data.system || [], data.custom || []);
+    }
     else if (data && Array.isArray(data.variables)) list = data.variables;
-    else { uiAlert('Import failed', 'Expected a variables JSON array or an object with a "custom" array.', { danger: true }); return; }
+    else { uiAlert('Import failed', 'Expected a variables JSON array, or an object with a "system"/"custom"/"variables" array.', { danger: true }); return; }
 
     if (!list.length) return;
     if (!(await uiConfirm('Import variables',
