@@ -453,6 +453,7 @@ header {
   flex: 1;
   min-height: 0;
 }
+.workspace.preview-collapsed { grid-template-columns: 1fr 34px; }
 
 /* ── TABLE PANEL ── */
 .table-panel {
@@ -805,6 +806,48 @@ header {
   background: #fafaf8;
   overflow: hidden;
 }
+.preview-panel { position: relative; }
+
+/* Collapse toggle in the header (visible when expanded) */
+.preview-collapse-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: var(--radius);
+}
+.preview-collapse-btn:hover { color: var(--accent); background: var(--accent-bg); }
+
+/* Vertical re-expand tab (visible only when collapsed) */
+.preview-expand-tab {
+  display: none;
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.preview-expand-tab:hover { color: var(--accent); background: var(--accent-bg); }
+
+/* Collapsed state: hide contents, show the tab */
+.workspace.preview-collapsed .preview-header,
+.workspace.preview-collapsed .preview-body,
+.workspace.preview-collapsed .preview-footer { display: none; }
+.workspace.preview-collapsed .preview-expand-tab { display: flex; }
 
 .preview-header {
   padding: 0 1rem;
@@ -1156,7 +1199,10 @@ pre#json-output {
   <div class="preview-panel">
     <div class="preview-header">
       <span class="preview-title">JSON Preview</span>
-      <button class="btn-tiny" id="copy-btn" onclick="copyJson()">⎘ Copy</button>
+      <div style="display:flex;align-items:center;gap:4px;">
+        <button class="btn-tiny" id="copy-btn" onclick="copyJson()">⎘ Copy</button>
+        <button class="preview-collapse-btn" id="preview-collapse" title="Collapse panel">›</button>
+      </div>
     </div>
     <div class="preview-body">
       <pre id="json-output"><span style="color:var(--muted)">// empty</span></pre>
@@ -1167,6 +1213,7 @@ pre#json-output {
       <span class="stat"><strong id="s-cat">0</strong> with category</span>
       <span class="stat dup-badge" id="dup-badge" style="display:none"></span>
     </div>
+    <button class="preview-expand-tab" id="preview-expand" title="Expand JSON Preview">‹ JSON Preview</button>
   </div>
 
 </div>
@@ -2092,6 +2139,14 @@ function applyColW() {
   for (const k in colW) p.style.setProperty(`--w-${k}`, colW[k] + 'px');
 }
 
+let previewCollapsed = false;
+function setPreviewCollapsed(collapsed) {
+  previewCollapsed = collapsed;
+  const ws = document.querySelector('.workspace');
+  if (ws) ws.classList.toggle('preview-collapsed', collapsed);
+}
+function togglePreview() { setPreviewCollapsed(!previewCollapsed); }
+
 // Map each header span's colW key to its CSS class.
 const COL_KEYS = ['type', 'id', 'display', 'default', 'category', 'override', 'actions'];
 const COL_CLASS = { type:'col-type', id:'col-id', display:'col-display',
@@ -2769,6 +2824,8 @@ async function init() {
   wireViewControls();
   applyColW();
   wireColumnResizers();
+  document.getElementById('preview-collapse')?.addEventListener('click', () => setPreviewCollapsed(true));
+  document.getElementById('preview-expand')?.addEventListener('click', () => setPreviewCollapsed(false));
 
   // Restore the last-open set if it still exists; otherwise land on the library.
   let restore = null;
