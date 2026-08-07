@@ -456,21 +456,30 @@ header {
 
 /* ── TABLE PANEL ── */
 .table-panel {
+  /* session-resizable column widths — mutated live by JS via --w-* */
+  --w-type: 72px;
+  --w-id: 180px;
+  --w-display: 200px;
+  --w-default: 150px;
+  --w-category: 110px;
+  --w-override: 50px;
+  --w-actions: 96px;
   overflow-y: auto;
+  overflow-x: auto;
   background: var(--surface);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
 }
 
-/* Column layout — must match row */
-.col-type      { width: 72px;  flex-shrink: 0; }
-.col-id        { width: 180px; flex-shrink: 0; }
-.col-display   { flex: 1; min-width: 120px; }
-.col-default   { width: 150px; flex-shrink: 0; }
-.col-category  { width: 110px; flex-shrink: 0; }
-.col-override  { width: 50px;  flex-shrink: 0; text-align: center; }
-.col-actions   { width: 96px;  flex-shrink: 0; }
+/* Column layout — widths driven by --w-* on .table-panel (see JS colW) */
+.col-type      { width: var(--w-type);     flex-shrink: 0; }
+.col-id        { width: var(--w-id);       flex-shrink: 0; }
+.col-display   { flex: 1 0 var(--w-display); min-width: 40px; }
+.col-default   { width: var(--w-default);  flex-shrink: 0; }
+.col-category  { width: var(--w-category); flex-shrink: 0; }
+.col-override  { width: var(--w-override); flex-shrink: 0; text-align: center; }
+.col-actions   { width: var(--w-actions);  flex-shrink: 0; }
 
 /* ── TABLE HEADER ── */
 .table-head {
