@@ -2161,6 +2161,9 @@ function autoFitColumn(key) {
   let want = DEFAULT_COL_W[key];
   const rows = document.querySelectorAll('#rows-container .var-row:not(.filtered-out)');
 
+  // No visible rows to measure → fall back to the column default (per spec).
+  if (!rows.length) { colW[key] = want; applyColW(); return; }
+
   if (COL_FIELD[key]) {
     const ctx = measureCtx();
     let max = 0;
