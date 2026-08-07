@@ -2058,6 +2058,21 @@ function setSort(key) {
   applyView();
 }
 
+// ─── Column layout (session-only) ──────────────────────────────────────────────
+// Widths live as --w-* CSS vars on .table-panel so header + rows reflow in sync
+// and survive innerHTML re-renders. Reset to defaults on reload (no persistence).
+const DEFAULT_COL_W = { type: 72, id: 180, display: 200, default: 150,
+                        category: 110, override: 50, actions: 96 };
+const MIN_COL_W = 40;
+const MAX_AUTOFIT_W = 480;
+let colW = { ...DEFAULT_COL_W };
+
+function applyColW() {
+  const p = document.getElementById('table-panel');
+  if (!p) return;
+  for (const k in colW) p.style.setProperty(`--w-${k}`, colW[k] + 'px');
+}
+
 function resetFilters() {
   view.sortKey = 'created'; view.sortDir = 'desc';
   view.search = ''; view.types = []; view.category = '';
@@ -2635,6 +2650,7 @@ async function init() {
 
   loadView();
   wireViewControls();
+  applyColW();
 
   // Restore the last-open set if it still exists; otherwise land on the library.
   let restore = null;
