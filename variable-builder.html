@@ -1158,7 +1158,7 @@ pre#json-output {
   <div class="spacer"></div>
 
   <button class="chip sort-created" id="sort-created" title="Sort by creation time">Created ↓</button>
-  <button class="btn-ghost" id="filter-reset" title="Clear all filters &amp; sorting">Reset</button>
+  <button class="btn-ghost" id="filter-reset" title="Clear filters, sorting &amp; column layout">Reset</button>
 </div>
 
 <!-- WORKSPACE -->
@@ -2254,6 +2254,10 @@ function resetFilters() {
   saveView();
   refreshCategoryOptions();
   applyView();
+  // Layout: restore default column widths and re-expand the preview panel.
+  colW = { ...DEFAULT_COL_W };
+  applyColW();
+  setPreviewCollapsed(false);
 }
 
 // Wire up all the filter/sort controls once, at init.
