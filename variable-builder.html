@@ -2141,9 +2141,49 @@ function wireColumnResizers() {
   });
 }
 
+// Shared canvas for text measurement (created lazily).
+let _measureCtx = null;
+function measureCtx() {
+  if (!_measureCtx) _measureCtx = document.createElement('canvas').getContext('2d');
+  // Match the row input font: --fs-xs size, --sans family.
+  const cs = getComputedStyle(document.body);
+  const size = cs.getPropertyValue('--fs-xs').trim() || '12px';
+  const fam = cs.getPropertyValue('--sans').trim() || 'sans-serif';
+  _measureCtx.font = `400 ${size} ${fam}`;
+  return _measureCtx;
+}
+
+// Which text field each column reads, for value measurement.
+const COL_FIELD = { id: 'f-id', display: 'f-display',
+                    default: 'f-default', category: 'f-category' };
+
 function autoFitColumn(key) {
-  // Filled in by Task 4. Temporary fallback: reset that column to default.
-  colW[key] = DEFAULT_COL_W[key];
+  let want = DEFAULT_COL_W[key];
+  const rows = document.querySelectorAll('#rows-container .var-row:not(.filtered-out)');
+
+  if (COL_FIELD[key]) {
+    const ctx = measureCtx();
+    let max = 0;
+    rows.forEach(r => {
+      const input = r.querySelector('.' + COL_FIELD[key]);
+      if (input) max = Math.max(max, ctx.measureText(input.value || '').width);
+    });
+    // Also fit the header label text.
+    const label = document.querySelector('#table-head .' + COL_CLASS[key]);
+    if (label) max = Math.max(max, ctx.measureText(label.textContent.trim()).width);
+    // input padding (0.375rem*2 ≈ 12px) + borders + cell padding-right (~8px) + handle.
+    if (max > 0) want = Math.ceil(max) + 34;
+  } else {
+    // Non-text columns (type badge, override checkbox, actions): fit rendered content.
+    let max = 0;
+    rows.forEach(r => {
+      const cell = r.querySelector('.' + COL_CLASS[key]);
+      if (cell) max = Math.max(max, cell.scrollWidth);
+    });
+    if (max > 0) want = Math.ceil(max) + 8;
+  }
+
+  colW[key] = Math.max(MIN_COL_W, Math.min(MAX_AUTOFIT_W, want));
   applyColW();
 }
 
