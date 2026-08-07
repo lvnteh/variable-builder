@@ -547,6 +547,36 @@ header {
   background: var(--accent);
   opacity: 0.4;
 }
+/* Always-visible grip: a subtle divider on each column's right edge so it's
+   discoverable that columns are draggable. Brightens/grows on hover + drag. */
+.col-resizer::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 3px;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 55%;
+  background: var(--border-hi);
+  transition: background 0.1s, height 0.1s, width 0.1s;
+}
+.col-resizer:hover::after,
+.col-resizer.dragging::after {
+  background: var(--accent);
+  width: 2px;
+  height: 100%;
+}
+
+/* Full-height guide line shown while dragging a column edge. Fixed-position,
+   tracks the column's new right edge across the whole table (header + rows). */
+#col-resize-guide {
+  position: fixed;
+  width: 2px;
+  background: var(--accent);
+  z-index: 9999;
+  pointer-events: none;
+  display: none;
+}
 
 /* Rows hidden by an active filter */
 .var-row.filtered-out,
@@ -2153,6 +2183,31 @@ const COL_CLASS = { type:'col-type', id:'col-id', display:'col-display',
                     default:'col-default', category:'col-category',
                     override:'col-override', actions:'col-actions' };
 
+// Full-height guide line shown during a column-edge drag. Lazily created,
+// spans the table panel vertically, and follows the pointer's x within the
+// panel's horizontal bounds so it marks exactly where the new edge lands.
+let _resizeGuide = null;
+function resizeGuideEl() {
+  if (!_resizeGuide) {
+    _resizeGuide = document.createElement('div');
+    _resizeGuide.id = 'col-resize-guide';
+    document.body.appendChild(_resizeGuide);
+  }
+  return _resizeGuide;
+}
+function positionResizeGuide(clientX) {
+  const panel = document.getElementById('table-panel');
+  if (!panel) return;
+  const r = panel.getBoundingClientRect();
+  const g = resizeGuideEl();
+  g.style.top = r.top + 'px';
+  g.style.height = r.height + 'px';
+  // Clamp to the visible panel so the line never strays outside the table.
+  g.style.left = Math.max(r.left, Math.min(clientX, r.right)) + 'px';
+}
+function showResizeGuide(clientX) { positionResizeGuide(clientX); resizeGuideEl().style.display = 'block'; }
+function hideResizeGuide() { if (_resizeGuide) _resizeGuide.style.display = 'none'; }
+
 // Append a drag handle to each header span; dragging mutates colW live.
 function wireColumnResizers() {
   const head = document.getElementById('table-head');
@@ -2168,9 +2223,11 @@ function wireColumnResizers() {
     const onMove = e => {
       colW[key] = Math.max(MIN_COL_W, startW + (e.clientX - startX));
       applyColW();
+      positionResizeGuide(e.clientX);   // track the new edge across the table
     };
     const onUp = e => {
       handle.classList.remove('dragging');
+      hideResizeGuide();
       handle.releasePointerCapture?.(e.pointerId);
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
@@ -2181,6 +2238,7 @@ function wireColumnResizers() {
       startX = e.clientX;
       startW = colW[key];
       handle.classList.add('dragging');
+      showResizeGuide(e.clientX);
       handle.setPointerCapture?.(e.pointerId);
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
