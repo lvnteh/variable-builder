@@ -528,6 +528,25 @@ header {
 .table-head > span.sort-asc::after  { content: '↑'; opacity: 1; }
 .table-head > span.sort-desc::after { content: '↓'; opacity: 1; }
 
+/* Column resize handles */
+.table-head > span { position: relative; }
+.col-resizer {
+  position: absolute;
+  top: 0;
+  right: -1px;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+  z-index: 11;
+  touch-action: none;
+}
+.col-resizer:hover,
+.col-resizer.dragging {
+  background: var(--accent);
+  opacity: 0.4;
+}
+
 /* Rows hidden by an active filter */
 .var-row.filtered-out,
 .select-row-extra.filtered-out { display: none; }
@@ -2073,6 +2092,61 @@ function applyColW() {
   for (const k in colW) p.style.setProperty(`--w-${k}`, colW[k] + 'px');
 }
 
+// Map each header span's colW key to its CSS class.
+const COL_KEYS = ['type', 'id', 'display', 'default', 'category', 'override', 'actions'];
+const COL_CLASS = { type:'col-type', id:'col-id', display:'col-display',
+                    default:'col-default', category:'col-category',
+                    override:'col-override', actions:'col-actions' };
+
+// Append a drag handle to each header span; dragging mutates colW live.
+function wireColumnResizers() {
+  const head = document.getElementById('table-head');
+  if (!head) return;
+  COL_KEYS.forEach(key => {
+    const span = head.querySelector('.' + COL_CLASS[key]);
+    if (!span || span.querySelector('.col-resizer')) return;
+    const handle = document.createElement('span');
+    handle.className = 'col-resizer';
+    handle.dataset.col = key;
+
+    let startX = 0, startW = 0;
+    const onMove = e => {
+      colW[key] = Math.max(MIN_COL_W, startW + (e.clientX - startX));
+      applyColW();
+    };
+    const onUp = e => {
+      handle.classList.remove('dragging');
+      handle.releasePointerCapture?.(e.pointerId);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    handle.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      e.stopPropagation();               // don't trigger column sort
+      startX = e.clientX;
+      startW = colW[key];
+      handle.classList.add('dragging');
+      handle.setPointerCapture?.(e.pointerId);
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    });
+    // A click that bubbles from the handle would sort; swallow it.
+    handle.addEventListener('click', e => e.stopPropagation());
+    handle.addEventListener('dblclick', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      autoFitColumn(key);
+    });
+    span.appendChild(handle);
+  });
+}
+
+function autoFitColumn(key) {
+  // Filled in by Task 4. Temporary fallback: reset that column to default.
+  colW[key] = DEFAULT_COL_W[key];
+  applyColW();
+}
+
 function resetFilters() {
   view.sortKey = 'created'; view.sortDir = 'desc';
   view.search = ''; view.types = []; view.category = '';
@@ -2651,6 +2725,7 @@ async function init() {
   loadView();
   wireViewControls();
   applyColW();
+  wireColumnResizers();
 
   // Restore the last-open set if it still exists; otherwise land on the library.
   let restore = null;
