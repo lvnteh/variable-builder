@@ -647,19 +647,57 @@ header {
 }
 
 .color-cell input[type="color"] {
-  width: 22px;
-  height: 22px;
-  border: 1px solid var(--border);
-  border-radius: 2px;
-  padding: 1px;
+  width: 30px;
+  height: 26px;
+  border: 1px solid var(--border-hi);
+  border-radius: 4px;
+  padding: 2px;
   cursor: pointer;
   flex-shrink: 0;
   background: transparent;
 }
+.color-cell input[type="color"]:hover { border-color: var(--accent); }
 
 .color-cell input[type="text"] {
   flex: 1;
   min-width: 0;
+}
+
+/* Labeled, validated HEX field: "HEX #[ rrggbb ]". The bordered wrapper carries
+   the focus/invalid styling; the inner input is chrome-less so it reads as one
+   control. Canonical model value stays '#rrggbb'; the box shows digits only. */
+.hex-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0 6px;
+  background: var(--surface);
+  transition: border-color 0.1s, background 0.1s;
+}
+.hex-field:focus-within { border-color: var(--accent); background: var(--accent-bg); }
+.hex-field.invalid { border-color: var(--danger); background: #fdf0ef; }
+.hex-label {
+  font-size: 0.625rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.hex-hash { color: var(--muted); font-size: var(--fs-xs); flex-shrink: 0; }
+.color-cell input.f-hex,
+.color-cell input.f-hex:hover,
+.color-cell input.f-hex:focus {
+  flex: 1;
+  min-width: 0;
+  border: none !important;
+  background: transparent !important;
+  padding: 0.1875rem 0 !important;
+  text-transform: lowercase;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Checkbox */
@@ -991,6 +1029,38 @@ pre#json-output {
 .library-trash { margin-top: 28px; font-size: 13px; }
 .library-trash .trash-item { display: flex; gap: 10px; align-items: center; padding: 4px 0; color: var(--muted); }
 
+/* Library toolbar: view toggle (Grid/List) + sort order (Newest/Oldest) */
+.library-tools { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+.library-tools .spacer { flex: 1; }
+.lib-group { display: flex; align-items: center; gap: 6px; }
+.lib-group-label { font-family: var(--sans); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.seg { display: inline-flex; border: 1px solid var(--border-hi); border-radius: 8px; overflow: hidden; }
+.seg button {
+  font-family: var(--sans); font-size: var(--fs-xs); font-weight: 500;
+  padding: 5px 12px; border: none; background: var(--surface); color: var(--muted);
+  cursor: pointer; transition: background .12s, color .12s;
+}
+.seg button + button { border-left: 1px solid var(--border-hi); }
+.seg button:hover { color: var(--accent); }
+.seg button.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+
+/* List view: one compact row per set */
+.library-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.set-row {
+  display: flex; align-items: center; gap: 14px; padding: 10px 16px;
+  cursor: pointer; background: var(--surface); border-top: 1px solid var(--border);
+  transition: background .12s;
+}
+.set-row:first-child { border-top: none; }
+.set-row:hover { background: var(--accent-bg); }
+.set-row .set-row-name { font-size: 14px; font-weight: 600; flex: 0 1 34%; min-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.set-row .set-row-meta { font-size: 12px; color: var(--muted); display: flex; gap: 12px; align-items: center; flex: 1 1 auto; min-width: 0; }
+.set-row .set-row-meta > span { white-space: nowrap; }
+.set-row .set-row-meta .set-presence { color: var(--accent); font-weight: 600; }
+.set-row .set-row-who { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.set-row .set-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.set-row .set-actions button { font-size: 12px; padding: 4px 8px; }
+
 /* ─── Modal dialog (design-native replacement for prompt/confirm/alert) ──── */
 /* One reusable host (#modal-overlay) drives every dialog. It scrims the shell,
    traps focus, and closes on Esc / backdrop click / a button choice. Styling is
@@ -1148,7 +1218,25 @@ pre#json-output {
     <h1 class="library-title">Variable sets</h1>
     <button class="btn-primary" id="new-set-btn" onclick="createSetPrompt()">+ New set</button>
   </div>
+  <div class="library-tools" id="library-tools" style="display:none">
+    <div class="lib-group">
+      <span class="lib-group-label">View</span>
+      <div class="seg" id="lib-view-seg">
+        <button type="button" data-view="grid" title="Grid of cards">Grid</button>
+        <button type="button" data-view="list" title="Compact list">List</button>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="lib-group">
+      <span class="lib-group-label">Sort</span>
+      <div class="seg" id="lib-sort-seg">
+        <button type="button" data-sort="newest" title="Most recently created first">Newest</button>
+        <button type="button" data-sort="oldest" title="Oldest created first">Oldest</button>
+      </div>
+    </div>
+  </div>
   <div class="library-grid" id="library-grid"></div>
+  <div class="library-list" id="library-list" style="display:none"></div>
   <div class="empty-state" id="library-empty" style="display:none">
     <div class="empty-icon">[ ]</div>
     <p>No sets yet.<br>Create your first set to start adding variables.</p>
@@ -1188,7 +1276,6 @@ pre#json-output {
   <div class="spacer"></div>
 
   <button class="chip sort-created" id="sort-created" title="Sort by creation time">Created ↓</button>
-  <button class="btn-ghost" id="filter-reset" title="Clear filters, sorting &amp; column layout">Reset</button>
 </div>
 
 <!-- WORKSPACE -->
@@ -1301,6 +1388,21 @@ let currentSetId = null;
 let libRev = null;                 // last library revision we rendered (home view)
 let sets = [];                     // library index entries (home view)
 const CURRENT_SET_KEY = 'bc-variable-builder-current-set';
+
+// Library home layout prefs (view mode + created-date sort), persisted globally
+// (not per-set — this governs the home screen itself). Grid + Newest are default.
+const LIB_VIEW_KEY = 'bc-variable-builder-lib-view';
+const libView = { mode: 'grid', sort: 'newest' };   // mode: grid|list ; sort: newest|oldest
+function loadLibView() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LIB_VIEW_KEY) || '{}');
+    if (saved.mode === 'grid' || saved.mode === 'list') libView.mode = saved.mode;
+    if (saved.sort === 'newest' || saved.sort === 'oldest') libView.sort = saved.sort;
+  } catch {}
+}
+function saveLibView() {
+  try { localStorage.setItem(LIB_VIEW_KEY, JSON.stringify(libView)); } catch {}
+}
 
 // Per-set storage keys: the base cache/view keys get a `-<setId>` suffix so each
 // set keeps its own offline cache and sort/filter state. Home view uses neither.
@@ -1678,11 +1780,27 @@ function refreshRow(v) {
   }
 }
 
+// ─── Hex color helpers ────────────────────────────────────────────────────────
+// Parse user hex input → canonical '#rrggbb', or null if invalid. Accepts an
+// optional leading '#', and 3- or 6-digit hex (3-digit expands: abc → aabbcc).
+function normHex(raw) {
+  if (raw == null) return null;
+  let s = String(raw).trim().replace(/^#/, '');
+  if (/^[0-9a-fA-F]{3}$/.test(s)) s = s.split('').map(c => c + c).join('');
+  return /^[0-9a-fA-F]{6}$/.test(s) ? '#' + s.toLowerCase() : null;
+}
+// Digits shown in the HEX field (the visible '#' prefix is separate chrome).
+function hexDigits(val) { return String(val == null ? '' : val).replace(/^#/, ''); }
+
 function rowHTML(v) {
   const defaultCell = v.type === 'color'
     ? `<div class="color-cell">
-        <input type="color" class="f-color-pick" value="${esc(/^#[0-9a-fA-F]{6}$/.test(v.default_value) ? v.default_value : '#000000')}">
-        <input type="text"  class="f-default" value="${esc(v.default_value)}" placeholder="#rrggbb">
+        <input type="color" class="f-color-pick" value="${esc(normHex(v.default_value) || '#000000')}" title="Open color picker">
+        <span class="hex-field${(v.default_value && !normHex(v.default_value)) ? ' invalid' : ''}">
+          <span class="hex-label">HEX</span>
+          <span class="hex-hash">#</span>
+          <input type="text" class="f-hex" value="${esc(hexDigits(v.default_value))}" placeholder="rrggbb" spellcheck="false" autocomplete="off" maxlength="7">
+        </span>
        </div>`
     : `<input type="text" class="f-default" value="${esc(v.default_value)}" placeholder="${defPlaceholder(v.type)}">`;
 
@@ -1753,17 +1871,51 @@ function wireRow(v, row) {
   if (v.type !== 'color') bind('.f-default', 'default_value');
 
   const colorPick = row.querySelector('.f-color-pick');
-  const colorText = row.querySelector('.f-default');
-  if (colorPick && colorText) {
+  const hexField  = row.querySelector('.hex-field');
+  const hexInput  = row.querySelector('.f-hex');
+  if (colorPick && hexInput) {
+    // The native color dialog steals focus away from the document (activeElement
+    // → body), so focus-based busy protection lapses and a background poll could
+    // re-render this row and destroy the open picker mid-edit. Bracket the whole
+    // interaction with an explicit busy flag (see isBusy) so the row is never
+    // rebuilt while the user is picking or typing a color.
+    colorPick.addEventListener('pointerdown', () => { v._editingColor = true; });
     colorPick.addEventListener('input', () => {
-      v.default_value = colorPick.value;
-      colorText.value = colorPick.value;
+      v._editingColor = true;
+      v.default_value = colorPick.value;                 // native value is always #rrggbb
+      hexInput.value = hexDigits(colorPick.value);
+      hexField.classList.remove('invalid');
       touch(v);
     });
-    colorText.addEventListener('input', () => {
-      v.default_value = colorText.value;
-      if (/^#[0-9a-fA-F]{6}$/.test(colorText.value)) colorPick.value = colorText.value;
+    // 'change' fires when the native dialog closes → safe to lift the flag.
+    colorPick.addEventListener('change', () => { v._editingColor = false; });
+    colorPick.addEventListener('blur', () => { v._editingColor = false; });
+
+    hexInput.addEventListener('focus', () => { v._editingColor = true; });
+    hexInput.addEventListener('input', () => {
+      v._editingColor = true;
+      const norm = normHex(hexInput.value);
+      v.default_value = norm || ('#' + hexInput.value.replace(/^#/, '').trim());
+      hexField.classList.toggle('invalid', hexInput.value.trim() !== '' && !norm);
+      if (norm) colorPick.value = norm;                  // live-sync the swatch
       touch(v);
+    });
+    // On blur, normalize the accepted value (3-digit → 6, add/canonicalize case)
+    // so the stored/displayed value is always tidy; leave invalid text as-is (flagged).
+    hexInput.addEventListener('blur', () => {
+      v._editingColor = false;
+      const norm = normHex(hexInput.value);
+      if (norm) {
+        v.default_value = norm;
+        hexInput.value = hexDigits(norm);
+        colorPick.value = norm;
+        hexField.classList.remove('invalid');
+        touch(v);
+      } else if (hexInput.value.trim() === '') {
+        v.default_value = '';
+        hexField.classList.remove('invalid');
+        touch(v);
+      }
     });
   }
 
@@ -1868,9 +2020,11 @@ function scheduleSave(v) {
 }
 
 // A variable is "busy" (must not be overwritten by an incoming poll) if it has
-// unsaved edits, a save in flight, a pending debounce/retry timer, or focus.
+// unsaved edits, a save in flight, a pending debounce/retry timer, focus, or an
+// open/active color picker (the native dialog moves focus off the document, so
+// focus alone won't protect it — see the color wiring in wireRow).
 function isBusy(v, focusedUid) {
-  return v._dirty || v._saving || saveTimers[v.uid] !== undefined || v.uid === focusedUid;
+  return v._dirty || v._saving || v._editingColor || saveTimers[v.uid] !== undefined || v.uid === focusedUid;
 }
 
 async function saveVar(v) {
@@ -2312,10 +2466,6 @@ function resetFilters() {
   saveView();
   refreshCategoryOptions();
   applyView();
-  // Layout: restore default column widths and re-expand the preview panel.
-  colW = { ...DEFAULT_COL_W };
-  applyColW();
-  setPreviewCollapsed(false);
 }
 
 // Wire up all the filter/sort controls once, at init.
@@ -2352,9 +2502,6 @@ function wireViewControls() {
   if (ed) ed.addEventListener('click', () => { view.editableOnly = !view.editableOnly; saveView(); applyView(); });
   const du = document.getElementById('f-dupes');
   if (du) du.addEventListener('click', () => { view.dupesOnly = !view.dupesOnly; saveView(); applyView(); });
-
-  const reset = document.getElementById('filter-reset');
-  if (reset) reset.addEventListener('click', resetFilters);
 }
 
 /*
@@ -2428,31 +2575,94 @@ function reorderRows() {
 // ─── Library home view ─────────────────────────────────────────────────────
 function renderLibrary() {
   const grid = document.getElementById('library-grid');
+  const list = document.getElementById('library-list');
   const empty = document.getElementById('library-empty');
+  const tools = document.getElementById('library-tools');
   grid.innerHTML = '';
-  if (!sets.length) { empty.style.display = ''; }
-  else {
-    empty.style.display = 'none';
-    sets.forEach(s => {
+  list.innerHTML = '';
+
+  // Sort by creation time (ISO strings sort lexicographically). Newest = desc.
+  // Fall back to setId for entries missing created_at so order stays stable.
+  const ordered = sets.slice().sort((a, b) => {
+    const av = a.created_at || '', bv = b.created_at || '';
+    const cmp = av < bv ? -1 : av > bv ? 1 : (a.setId < b.setId ? -1 : a.setId > b.setId ? 1 : 0);
+    return libView.sort === 'newest' ? -cmp : cmp;
+  });
+
+  syncLibControls();
+
+  if (!ordered.length) {
+    empty.style.display = '';
+    grid.style.display = 'none';
+    list.style.display = 'none';
+    if (tools) tools.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  if (tools) tools.style.display = '';
+
+  const isList = libView.mode === 'list';
+  grid.style.display = isList ? 'none' : '';
+  list.style.display = isList ? '' : 'none';
+
+  ordered.forEach(s => {
+    const who = s.updated_by ? `edited by ${esc(s.updated_by)}` : '';
+    const pres = s.presence ? `<span class="set-presence">● ${s.presence} here</span>` : '';
+    const safeName = esc(s.name).replace(/'/g, "\\'");
+    const actions =
+      `<div class="set-actions">` +
+        `<button class="btn-tiny" onclick="openSet('${s.setId}')">Open</button>` +
+        `<button class="btn-tiny" onclick="duplicateSet('${s.setId}')">Duplicate</button>` +
+        `<button class="btn-tiny" onclick="renameSetPromptFor('${s.setId}',${s.version})">Rename</button>` +
+        `<button class="btn-tiny" onclick="deleteSet('${s.setId}','${safeName}')">Delete</button>` +
+      `</div>`;
+
+    if (isList) {
+      const row = document.createElement('div');
+      row.className = 'set-row';
+      row.onclick = (e) => { if (!e.target.closest('.set-actions')) openSet(s.setId); };
+      row.innerHTML =
+        `<div class="set-row-name">${esc(s.name)}</div>` +
+        `<div class="set-row-meta">` +
+          `<span>${s.variable_count} vars</span>${pres}` +
+          `<span class="set-row-who">${who}</span>` +
+        `</div>` +
+        actions;
+      list.appendChild(row);
+    } else {
       const card = document.createElement('div');
       card.className = 'set-card';
       card.onclick = (e) => { if (!e.target.closest('.set-actions')) openSet(s.setId); };
-      const who = s.updated_by ? `edited by ${esc(s.updated_by)}` : '';
-      const pres = s.presence ? `<span class="set-presence">● ${s.presence} here</span>` : '';
-      const safeName = esc(s.name).replace(/'/g, "\\'");
       card.innerHTML =
         `<h3>${esc(s.name)}</h3>` +
         `<div class="set-meta"><span>${s.variable_count} vars</span>${pres}</div>` +
         `<div class="set-meta" style="margin-top:4px">${who}</div>` +
-        `<div class="set-actions">` +
-          `<button class="btn-tiny" onclick="openSet('${s.setId}')">Open</button>` +
-          `<button class="btn-tiny" onclick="duplicateSet('${s.setId}')">Duplicate</button>` +
-          `<button class="btn-tiny" onclick="renameSetPromptFor('${s.setId}',${s.version})">Rename</button>` +
-          `<button class="btn-tiny" onclick="deleteSet('${s.setId}','${safeName}')">Delete</button>` +
-        `</div>`;
+        actions;
       grid.appendChild(card);
-    });
-  }
+    }
+  });
+}
+
+// Reflect libView state in the toggle buttons (active styling).
+function syncLibControls() {
+  document.querySelectorAll('#lib-view-seg button').forEach(b =>
+    b.classList.toggle('active', b.dataset.view === libView.mode));
+  document.querySelectorAll('#lib-sort-seg button').forEach(b =>
+    b.classList.toggle('active', b.dataset.sort === libView.sort));
+}
+
+// Wire the library view/sort toggles once, at init.
+function wireLibControls() {
+  document.querySelectorAll('#lib-view-seg button').forEach(b =>
+    b.addEventListener('click', () => {
+      if (libView.mode === b.dataset.view) return;
+      libView.mode = b.dataset.view; saveLibView(); renderLibrary();
+    }));
+  document.querySelectorAll('#lib-sort-seg button').forEach(b =>
+    b.addEventListener('click', () => {
+      if (libView.sort === b.dataset.sort) return;
+      libView.sort = b.dataset.sort; saveLibView(); renderLibrary();
+    }));
 }
 
 // Show/hide editor chrome vs the library home. One source of truth for "what
@@ -2883,7 +3093,9 @@ async function init() {
   if (meTag) meTag.addEventListener('click', () => promptName(false));
 
   loadView();
+  loadLibView();
   wireViewControls();
+  wireLibControls();
   applyColW();
   wireColumnResizers();
   document.getElementById('preview-collapse')?.addEventListener('click', () => setPreviewCollapsed(true));
