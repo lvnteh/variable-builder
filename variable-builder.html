@@ -646,17 +646,35 @@ header {
   width: 100%;
 }
 
-.color-cell input[type="color"] {
+/* Swatch button — opens the custom in-page color popover (below). We use our
+   own popover instead of <input type="color"> so the picker stays open until
+   the user clicks OK/Cancel and can't be destroyed by a background re-render. */
+.color-cell .f-swatch {
   width: 30px;
   height: 26px;
   border: 1px solid var(--border-hi);
   border-radius: 4px;
-  padding: 2px;
+  padding: 0;
   cursor: pointer;
   flex-shrink: 0;
-  background: transparent;
+  position: relative;
+  overflow: hidden;
+  background-image:
+    linear-gradient(45deg, #ccc 25%, transparent 25%),
+    linear-gradient(-45deg, #ccc 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #ccc 75%),
+    linear-gradient(-45deg, transparent 75%, #ccc 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 0 4px, 4px -4px, -4px 0;
 }
-.color-cell input[type="color"]:hover { border-color: var(--accent); }
+.color-cell .f-swatch:hover { border-color: var(--accent); }
+.color-cell .f-swatch::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--swatch, #000);
+}
+.color-cell .f-swatch.empty::after { background: transparent; }
 
 .color-cell input[type="text"] {
   flex: 1;
@@ -699,6 +717,108 @@ header {
   text-transform: lowercase;
   font-variant-numeric: tabular-nums;
 }
+
+/* ─── Custom color popover (HSV) ─────────────────────────────────────────────
+   A single reusable popover (created once, appended to <body>, position:fixed)
+   is anchored to whichever swatch opened it. Stays open until OK/Cancel. */
+.color-popover {
+  position: fixed;
+  z-index: 10000;
+  width: 232px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-hi);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  display: none;
+  user-select: none;
+  font-family: var(--sans);
+}
+.color-popover.open { display: block; }
+.cp-sb {
+  position: relative;
+  width: 208px;
+  height: 140px;
+  border-radius: 6px;
+  cursor: crosshair;
+  /* white→hue horizontally, transparent→black vertically; hue set inline */
+  background:
+    linear-gradient(to top, #000, transparent),
+    linear-gradient(to right, #fff, var(--cp-hue, #f00));
+}
+.cp-sb-thumb {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.cp-hue {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 208px;
+  height: 12px;
+  margin: 12px 0 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: linear-gradient(to right,
+    #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%);
+}
+.cp-hue::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid var(--border-hi);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+.cp-hue::-moz-range-thumb {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid var(--border-hi);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+.cp-row { display: flex; align-items: center; gap: 8px; }
+.cp-preview {
+  width: 26px; height: 26px;
+  border-radius: 4px;
+  border: 1px solid var(--border-hi);
+  flex-shrink: 0;
+}
+.cp-hex-wrap {
+  display: inline-flex; align-items: center; gap: 4px;
+  flex: 1; min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3px 6px;
+  background: var(--surface);
+}
+.cp-hex-wrap:focus-within { border-color: var(--accent); }
+.cp-hex-wrap.invalid { border-color: var(--danger); background: #fdf0ef; }
+.cp-hex-wrap .hex-hash { color: var(--muted); font-size: var(--fs-xs); }
+.cp-hex {
+  border: none; outline: none; background: transparent;
+  width: 100%; min-width: 0;
+  font-family: var(--sans); font-size: var(--fs-xs);
+  text-transform: lowercase;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.cp-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.cp-btn {
+  font-family: var(--sans); font-size: var(--fs-xs); font-weight: 500;
+  padding: 5px 14px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--border-hi); background: var(--surface); color: var(--text);
+}
+.cp-btn:hover { border-color: var(--accent); color: var(--accent); }
+.cp-btn.cp-ok { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cp-btn.cp-ok:hover { background: #0064d9; color: #fff; }
 
 /* Checkbox */
 .var-row input[type="checkbox"] {
@@ -1792,10 +1912,213 @@ function normHex(raw) {
 // Digits shown in the HEX field (the visible '#' prefix is separate chrome).
 function hexDigits(val) { return String(val == null ? '' : val).replace(/^#/, ''); }
 
+// ── HSV ↔ hex conversions (H in [0,360), S/V in [0,1]) ────────────────────────
+function hexToRgb(hex) {
+  const n = normHex(hex) || '#000000';
+  return { r: parseInt(n.slice(1, 3), 16), g: parseInt(n.slice(3, 5), 16), b: parseInt(n.slice(5, 7), 16) };
+}
+function rgbToHex(r, g, b) {
+  const h = x => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, '0');
+  return '#' + h(r) + h(g) + h(b);
+}
+function rgbToHsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0;
+  if (d !== 0) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60; if (h < 0) h += 360;
+  }
+  return { h, s: max === 0 ? 0 : d / max, v: max };
+}
+function hsvToRgb(h, s, v) {
+  const c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c;
+  let r = 0, g = 0, b = 0;
+  if (h < 60)       { r = c; g = x; }
+  else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; }
+  else              { r = c; b = x; }
+  return { r: (r + m) * 255, g: (g + m) * 255, b: (b + m) * 255 };
+}
+function hexToHsv(hex) { const { r, g, b } = hexToRgb(hex); return rgbToHsv(r, g, b); }
+function hsvToHex(h, s, v) { const { r, g, b } = hsvToRgb(h, s, v); return rgbToHex(r, g, b); }
+
+// ── Custom color popover ──────────────────────────────────────────────────────
+// One reusable popover for the whole app. openColorPopover() anchors it to a
+// swatch and drives a variable's color; OK commits, Cancel/Esc/outside-click
+// revert to the value captured when it opened. While open, the owning row is
+// marked _editingColor so a background poll can't re-render it out from under us.
+const colorPopover = {
+  el: null, hue: 0, sat: 0, val: 0,
+  owner: null,      // the variable record being edited
+  swatch: null,     // the swatch button that opened us
+  startValue: '',   // value at open time (for Cancel/revert)
+  onCommit: null,   // callback(hexOrEmpty) run on OK / revert to sync the row
+};
+
+function buildColorPopover() {
+  if (colorPopover.el) return colorPopover.el;
+  const el = document.createElement('div');
+  el.className = 'color-popover';
+  el.innerHTML = `
+    <div class="cp-sb"><div class="cp-sb-thumb"></div></div>
+    <input type="range" class="cp-hue" min="0" max="360" step="1" value="0">
+    <div class="cp-row">
+      <div class="cp-preview"></div>
+      <span class="cp-hex-wrap"><span class="hex-hash">#</span><input type="text" class="cp-hex" spellcheck="false" autocomplete="off" maxlength="7" placeholder="rrggbb"></span>
+    </div>
+    <div class="cp-actions">
+      <button type="button" class="cp-btn cp-cancel">Cancel</button>
+      <button type="button" class="cp-btn cp-ok">OK</button>
+    </div>`;
+  document.body.appendChild(el);
+  colorPopover.el = el;
+
+  const sb = el.querySelector('.cp-sb');
+  const hue = el.querySelector('.cp-hue');
+  const hexInput = el.querySelector('.cp-hex');
+  const hexWrap = el.querySelector('.cp-hex-wrap');
+
+  // Drag on the saturation/brightness square.
+  let sbDragging = false;
+  const sbFromEvent = (e) => {
+    const r = sb.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    const y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+    colorPopover.sat = x;
+    colorPopover.val = 1 - y;
+    syncColorPopover(true);
+  };
+  sb.addEventListener('pointerdown', (e) => { sbDragging = true; sb.setPointerCapture(e.pointerId); sbFromEvent(e); });
+  sb.addEventListener('pointermove', (e) => { if (sbDragging) sbFromEvent(e); });
+  sb.addEventListener('pointerup', (e) => { sbDragging = false; try { sb.releasePointerCapture(e.pointerId); } catch {} });
+
+  hue.addEventListener('input', () => { colorPopover.hue = Number(hue.value); syncColorPopover(true); });
+
+  hexInput.addEventListener('input', () => {
+    const norm = normHex(hexInput.value);
+    hexWrap.classList.toggle('invalid', hexInput.value.trim() !== '' && !norm);
+    if (norm) {
+      const hsv = hexToHsv(norm);
+      colorPopover.hue = hsv.h; colorPopover.sat = hsv.s; colorPopover.val = hsv.v;
+      syncColorPopover(false);      // don't overwrite the text the user is typing
+    }
+  });
+
+  el.querySelector('.cp-ok').addEventListener('click', () => commitColorPopover());
+  el.querySelector('.cp-cancel').addEventListener('click', () => closeColorPopover(true));
+  // Keep clicks inside the popover from bubbling to the outside-click closer.
+  el.addEventListener('pointerdown', (e) => e.stopPropagation());
+  return el;
+}
+
+// Push current HSV state into the UI (thumb, hue var, preview, hex field).
+// updateHex=false leaves the hex input alone (used while the user types in it).
+function syncColorPopover(updateHex) {
+  const el = colorPopover.el; if (!el) return;
+  const { hue, sat, val } = colorPopover;
+  const hex = hsvToHex(hue, sat, val);
+  el.style.setProperty('--cp-hue', hsvToHex(hue, 1, 1));
+  const thumb = el.querySelector('.cp-sb-thumb');
+  thumb.style.left = (sat * 100) + '%';
+  thumb.style.top = ((1 - val) * 100) + '%';
+  el.querySelector('.cp-preview').style.background = hex;
+  el.querySelector('.cp-hue').value = String(Math.round(hue));
+  if (updateHex) {
+    el.querySelector('.cp-hex').value = hexDigits(hex);
+    el.querySelector('.cp-hex-wrap').classList.remove('invalid');
+  }
+  // Live-preview onto the row's swatch + hex field (not yet committed to model).
+  if (colorPopover.onCommit) colorPopover.onCommit(hex, /*preview*/ true);
+}
+
+function positionColorPopover() {
+  const el = colorPopover.el, sw = colorPopover.swatch;
+  if (!el || !sw) return;
+  const r = sw.getBoundingClientRect();
+  const w = el.offsetWidth || 232, h = el.offsetHeight || 280;
+  let left = r.left;
+  let top = r.bottom + 6;
+  if (left + w > window.innerWidth - 8) left = Math.max(8, window.innerWidth - 8 - w);
+  if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - 6 - h);  // flip above
+  el.style.left = left + 'px';
+  el.style.top = top + 'px';
+}
+
+function openColorPopover(swatch, v, onCommit) {
+  buildColorPopover();
+  // If another popover is open, cancel it first (revert its owner).
+  if (colorPopover.owner && colorPopover.owner !== v) closeColorPopover(true);
+
+  colorPopover.owner = v;
+  colorPopover.swatch = swatch;
+  colorPopover.startValue = v.default_value || '';
+  colorPopover.onCommit = onCommit;
+  v._editingColor = true;                       // protect the row from poll re-render
+
+  const hsv = hexToHsv(normHex(v.default_value) || '#000000');
+  colorPopover.hue = hsv.h; colorPopover.sat = hsv.s; colorPopover.val = hsv.v;
+
+  const el = colorPopover.el;
+  el.classList.add('open');
+  syncColorPopover(true);
+  positionColorPopover();
+
+  // Defer wiring the global closers so THIS opening click doesn't close it.
+  setTimeout(() => {
+    document.addEventListener('pointerdown', outsideColorClose);
+    window.addEventListener('resize', positionColorPopover);
+    window.addEventListener('scroll', positionColorPopover, true);
+    document.addEventListener('keydown', colorPopoverKeys);
+  }, 0);
+}
+
+function colorPopoverKeys(e) {
+  if (e.key === 'Escape') { e.preventDefault(); closeColorPopover(true); }
+  else if (e.key === 'Enter') { e.preventDefault(); commitColorPopover(); }
+}
+function outsideColorClose(e) {
+  if (colorPopover.el && !colorPopover.el.contains(e.target) && e.target !== colorPopover.swatch)
+    closeColorPopover(true);                    // outside click = Cancel (revert)
+}
+
+// Commit the current selection to the model (OK).
+function commitColorPopover() {
+  const v = colorPopover.owner;
+  if (v) {
+    const hex = hsvToHex(colorPopover.hue, colorPopover.sat, colorPopover.val);
+    if (colorPopover.onCommit) colorPopover.onCommit(hex, /*preview*/ false);
+  }
+  closeColorPopover(false);
+}
+
+// Close the popover. revert=true restores the owner's start value (Cancel/Esc/
+// outside-click); revert=false keeps whatever was committed (OK).
+function closeColorPopover(revert) {
+  const el = colorPopover.el;
+  const v = colorPopover.owner;
+  if (revert && v && colorPopover.onCommit) {
+    colorPopover.onCommit(colorPopover.startValue, /*preview*/ false);
+  }
+  if (v) v._editingColor = false;
+  if (el) el.classList.remove('open');
+  document.removeEventListener('pointerdown', outsideColorClose);
+  window.removeEventListener('resize', positionColorPopover);
+  window.removeEventListener('scroll', positionColorPopover, true);
+  document.removeEventListener('keydown', colorPopoverKeys);
+  colorPopover.owner = null;
+  colorPopover.swatch = null;
+  colorPopover.onCommit = null;
+}
+
 function rowHTML(v) {
   const defaultCell = v.type === 'color'
     ? `<div class="color-cell">
-        <input type="color" class="f-color-pick" value="${esc(normHex(v.default_value) || '#000000')}" title="Open color picker">
+        <button type="button" class="f-swatch${normHex(v.default_value) ? '' : ' empty'}" style="--swatch:${esc(normHex(v.default_value) || 'transparent')}" title="Open color picker" aria-label="Open color picker"></button>
         <span class="hex-field${(v.default_value && !normHex(v.default_value)) ? ' invalid' : ''}">
           <span class="hex-label">HEX</span>
           <span class="hex-hash">#</span>
@@ -1870,49 +2193,62 @@ function wireRow(v, row) {
   // Non-color default binds directly; color is handled below.
   if (v.type !== 'color') bind('.f-default', 'default_value');
 
-  const colorPick = row.querySelector('.f-color-pick');
-  const hexField  = row.querySelector('.hex-field');
-  const hexInput  = row.querySelector('.f-hex');
-  if (colorPick && hexInput) {
-    // The native color dialog steals focus away from the document (activeElement
-    // → body), so focus-based busy protection lapses and a background poll could
-    // re-render this row and destroy the open picker mid-edit. Bracket the whole
-    // interaction with an explicit busy flag (see isBusy) so the row is never
-    // rebuilt while the user is picking or typing a color.
-    colorPick.addEventListener('pointerdown', () => { v._editingColor = true; });
-    colorPick.addEventListener('input', () => {
-      v._editingColor = true;
-      v.default_value = colorPick.value;                 // native value is always #rrggbb
-      hexInput.value = hexDigits(colorPick.value);
-      hexField.classList.remove('invalid');
-      touch(v);
-    });
-    // 'change' fires when the native dialog closes → safe to lift the flag.
-    colorPick.addEventListener('change', () => { v._editingColor = false; });
-    colorPick.addEventListener('blur', () => { v._editingColor = false; });
+  const swatch   = row.querySelector('.f-swatch');
+  const hexField = row.querySelector('.hex-field');
+  const hexInput = row.querySelector('.f-hex');
+  if (swatch && hexInput) {
+    // Reflect a hex value onto this row's swatch + hex field. `preview` (from the
+    // popover during drag) shows on the swatch/field but is NOT persisted; only a
+    // non-preview call (OK, or revert on Cancel) writes the model and marks dirty.
+    const applyColor = (hex, preview) => {
+      const norm = normHex(hex);
+      const empty = !hex || hex === '';
+      swatch.classList.toggle('empty', empty || !norm);
+      swatch.style.setProperty('--swatch', norm || 'transparent');
+      hexInput.value = empty ? '' : hexDigits(norm || hex);
+      hexField.classList.toggle('invalid', !empty && !norm);
+      if (!preview) {
+        v.default_value = norm || (empty ? '' : hex);
+        touch(v);
+      }
+    };
 
+    // Swatch opens the custom popover (stays open until OK/Cancel). Clicking the
+    // same swatch while open toggles it closed (revert).
+    swatch.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (colorPopover.owner === v) { closeColorPopover(true); return; }
+      openColorPopover(swatch, v, applyColor);
+    });
+
+    // The inline HEX field still edits directly (independent of the popover).
     hexInput.addEventListener('focus', () => { v._editingColor = true; });
     hexInput.addEventListener('input', () => {
       v._editingColor = true;
       const norm = normHex(hexInput.value);
       v.default_value = norm || ('#' + hexInput.value.replace(/^#/, '').trim());
       hexField.classList.toggle('invalid', hexInput.value.trim() !== '' && !norm);
-      if (norm) colorPick.value = norm;                  // live-sync the swatch
+      swatch.classList.toggle('empty', !norm);
+      swatch.style.setProperty('--swatch', norm || 'transparent');
       touch(v);
     });
-    // On blur, normalize the accepted value (3-digit → 6, add/canonicalize case)
-    // so the stored/displayed value is always tidy; leave invalid text as-is (flagged).
+    // On blur, normalize an accepted value (3-digit → 6, tidy case); empty clears;
+    // leave invalid text as-is (flagged). Don't lift _editingColor if the popover
+    // is what took focus.
     hexInput.addEventListener('blur', () => {
-      v._editingColor = false;
+      if (colorPopover.owner !== v) v._editingColor = false;
       const norm = normHex(hexInput.value);
       if (norm) {
         v.default_value = norm;
         hexInput.value = hexDigits(norm);
-        colorPick.value = norm;
+        swatch.classList.remove('empty');
+        swatch.style.setProperty('--swatch', norm);
         hexField.classList.remove('invalid');
         touch(v);
       } else if (hexInput.value.trim() === '') {
         v.default_value = '';
+        swatch.classList.add('empty');
+        swatch.style.setProperty('--swatch', 'transparent');
         hexField.classList.remove('invalid');
         touch(v);
       }
