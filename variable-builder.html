@@ -1512,7 +1512,7 @@ const CURRENT_SET_KEY = 'bc-variable-builder-current-set';
 // Library home layout prefs (view mode + created-date sort), persisted globally
 // (not per-set — this governs the home screen itself). Grid + Newest are default.
 const LIB_VIEW_KEY = 'bc-variable-builder-lib-view';
-const libView = { mode: 'grid', sort: 'newest' };   // mode: grid|list ; sort: newest|oldest
+const libView = { mode: 'list', sort: 'newest' };   // mode: grid|list ; sort: newest|oldest
 function loadLibView() {
   try {
     const saved = JSON.parse(localStorage.getItem(LIB_VIEW_KEY) || '{}');
