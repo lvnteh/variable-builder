@@ -1116,18 +1116,28 @@ pre#json-output {
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--border-hi); }
 
-/* select expand indicator */
+/* select expand indicator — labeled button in the default_value cell */
 .select-toggle {
-  background: transparent;
-  border: none;
-  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
   cursor: pointer;
-  font-size: 10px;
-  padding: 2px 4px;
-  line-height: 1;
-  transition: color 0.1s;
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  padding: 3px 8px;
+  line-height: 1.2;
+  transition: border-color 0.1s, background 0.1s, color 0.1s;
 }
-.select-toggle:hover { color: var(--accent); }
+.select-toggle:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+.select-toggle.open { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+.select-toggle-caret { font-size: 9px; transition: transform 0.12s ease; }
+.select-toggle.open .select-toggle-caret { transform: rotate(180deg); }
+.select-toggle-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ─── Library home ─────────────────────────────────────────────────────── */
 .library { padding: 24px 32px; max-width: 1100px; margin: 0 auto; }
@@ -2115,21 +2125,33 @@ function closeColorPopover(revert) {
   colorPopover.onCommit = null;
 }
 
+// Labeled toggle that replaces the default_value cell for select variables. Makes
+// it obvious the control reveals the option list; shows the current option count.
+function selectToggleHTML(v) {
+  const n = (v.type_config && v.type_config.options) ? v.type_config.options.length : 0;
+  const label = n === 1 ? '1 option' : `${n} options`;
+  return `<button type="button" class="select-toggle${v._expanded ? ' open' : ''}" title="Show selectable options" aria-expanded="${v._expanded ? 'true' : 'false'}">
+      <span class="select-toggle-caret">▾</span>
+      <span class="select-toggle-label">${label}</span>
+    </button>`;
+}
+
 function rowHTML(v) {
-  const defaultCell = v.type === 'color'
-    ? `<div class="color-cell">
+  let defaultCell;
+  if (v.type === 'color') {
+    defaultCell = `<div class="color-cell">
         <button type="button" class="f-swatch${normHex(v.default_value) ? '' : ' empty'}" style="--swatch:${esc(normHex(v.default_value) || 'transparent')}" title="Open color picker" aria-label="Open color picker"></button>
         <span class="hex-field${(v.default_value && !normHex(v.default_value)) ? ' invalid' : ''}">
           <span class="hex-label">HEX</span>
           <span class="hex-hash">#</span>
           <input type="text" class="f-hex" value="${esc(hexDigits(v.default_value))}" placeholder="rrggbb" spellcheck="false" autocomplete="off" maxlength="7">
         </span>
-       </div>`
-    : `<input type="text" class="f-default" value="${esc(v.default_value)}" placeholder="${defPlaceholder(v.type)}">`;
-
-  const selectIcon = v.type === 'select'
-    ? `<button class="select-toggle" title="Manage options">${v._expanded ? '▴' : '▾'}</button>`
-    : '';
+       </div>`;
+  } else if (v.type === 'select') {
+    defaultCell = selectToggleHTML(v);
+  } else {
+    defaultCell = `<input type="text" class="f-default" value="${esc(v.default_value)}" placeholder="${defPlaceholder(v.type)}">`;
+  }
 
   return `
     <span class="col-type">
@@ -2151,7 +2173,6 @@ function rowHTML(v) {
     <span class="col-actions" style="display:flex;align-items:center;gap:2px;">
       <span class="live-slot"></span>
       <span class="attr-slot">${v._meta && v._meta.updated_by ? avatarHTML(v._meta.updated_by, 'attr', attributionTitle(v._meta)) : ''}</span>
-      ${selectIcon}
       <button class="del-btn" title="Remove">✕</button>
     </span>
   `;
@@ -2261,7 +2282,8 @@ function wireRow(v, row) {
       v._expanded = !v._expanded;
       const extra = document.getElementById(`extra-${v.uid}`);
       if (extra) extra.style.display = v._expanded ? 'block' : 'none';
-      toggle.textContent = v._expanded ? '▴' : '▾';
+      toggle.classList.toggle('open', v._expanded);
+      toggle.setAttribute('aria-expanded', v._expanded ? 'true' : 'false');
     });
   }
 
@@ -2307,6 +2329,16 @@ function optRowHTML(o) {
     </div>`;
 }
 
+// Refresh the "N options" label on a select row's default-cell toggle.
+function refreshSelectCount(v) {
+  const row = document.getElementById(`row-${v.uid}`);
+  if (!row) return;
+  const label = row.querySelector('.select-toggle-label');
+  if (!label) return;
+  const n = (v.type_config && v.type_config.options) ? v.type_config.options.length : 0;
+  label.textContent = n === 1 ? '1 option' : `${n} options`;
+}
+
 function wireExtra(v, extra) {
   extra.querySelector('.add-opt-btn').addEventListener('click', () => {
     const opt = { id: '', value: '', name: '' };
@@ -2318,6 +2350,7 @@ function wireExtra(v, extra) {
     body.appendChild(el);
     wireOptRow(v, el, opt);        // bind to the option OBJECT, not an index
     el.querySelector('input').focus();
+    refreshSelectCount(v);
     touch(v);
   });
 
@@ -2338,6 +2371,7 @@ function wireOptRow(v, el, opt) {
     const idx = v.type_config.options.indexOf(opt);
     if (idx !== -1) v.type_config.options.splice(idx, 1);
     el.remove();
+    refreshSelectCount(v);
     touch(v);
   });
 }
