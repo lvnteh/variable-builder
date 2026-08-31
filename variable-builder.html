@@ -458,6 +458,7 @@ header {
 /* ── TABLE PANEL ── */
 .table-panel {
   /* session-resizable column widths — mutated live by JS via --w-* */
+  --w-flag: 38px;
   --w-type: 72px;
   --w-id: 180px;
   --w-display: 200px;
@@ -474,6 +475,7 @@ header {
 }
 
 /* Column layout — widths driven by --w-* on .table-panel (see JS colW) */
+.col-flag      { width: var(--w-flag);     flex-shrink: 0; text-align: center; }
 .col-type      { width: var(--w-type);     flex-shrink: 0; }
 .col-id        { width: var(--w-id);       flex-shrink: 0; }
 .col-display   { flex: 1 0 var(--w-display); min-width: 40px; }
@@ -861,6 +863,28 @@ header {
 }
 
 .del-btn:hover { color: var(--danger); background: #fdf0ef; }
+
+/* Flag (pick) toggle — first column. Outline star when off, filled gold when on.
+   Mirrors .del-btn's transparent 24px-square footprint. */
+.flag-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 4px;
+  border-radius: 2px;
+  transition: color 0.1s, background 0.1s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+.flag-btn:hover { color: #e0a800; background: #fff8e5; }
+.flag-btn.on { color: #e0a800; }
+.flag-btn.on:hover { color: #c68f00; background: #fff8e5; }
 
 /* Select options expander */
 .select-row-extra {
@@ -1402,6 +1426,7 @@ pre#json-output {
 
   <button class="chip chip-flag" id="f-editable" title="Show only editable variables">editable only</button>
   <button class="chip chip-flag" id="f-dupes" title="Show only rows with duplicate ids">duplicates</button>
+  <button class="chip chip-flag" id="f-flagged" title="Show only flagged variables">★ flagged</button>
 
   <div class="spacer"></div>
 
@@ -1416,6 +1441,7 @@ pre#json-output {
 
     <!-- Column headers (sortable) -->
     <div class="table-head" id="table-head" style="display:none">
+      <span class="col-flag" title="Flag as a pick">★</span>
       <span class="col-type sortable"  data-sort="type">Type</span>
       <span class="col-display sortable" data-sort="display_name">display_name</span>
       <span class="col-id sortable"     data-sort="id">id</span>
@@ -1805,6 +1831,7 @@ function dataOf(v) {
     is_overridable: v.is_overridable,
     type: v.type,
     category: v.category,
+    flag: !!v.flag,   // pick marker — persisted + part of the sync diff; toExport() strips it
   };
   if (v.type === 'select') d.type_config = v.type_config;
   return d;
@@ -1856,6 +1883,7 @@ function toRecord(rec) {
     is_overridable: rec.is_overridable !== undefined ? rec.is_overridable : true,
     type: rec.type ?? 'string',
     category: rec.category ?? '',
+    flag: rec.flag === true,         // editor-side pick marker (never exported)
     type_config,
     _meta: rec._meta || null,        // { created_by, created_at, updated_by, updated_at } — attribution, never exported
     _expanded: false,
@@ -2154,6 +2182,9 @@ function rowHTML(v) {
   }
 
   return `
+    <span class="col-flag">
+      <button type="button" class="flag-btn${v.flag ? ' on' : ''}" title="Flag as a pick" aria-pressed="${v.flag ? 'true' : 'false'}">${v.flag ? '★' : '☆'}</button>
+    </span>
     <span class="col-type">
       <span class="type-badge t-${v.type}">${v.type}</span>
     </span>
@@ -2287,6 +2318,18 @@ function wireRow(v, row) {
     });
   }
 
+  const flagBtn = row.querySelector('.flag-btn');
+  if (flagBtn) {
+    flagBtn.addEventListener('click', () => {
+      v.flag = !v.flag;
+      flagBtn.classList.toggle('on', v.flag);
+      flagBtn.textContent = v.flag ? '★' : '☆';
+      flagBtn.setAttribute('aria-pressed', v.flag ? 'true' : 'false');
+      touch(v);      // mark dirty → debounced save + preview refresh
+      applyView();   // re-filter now in case "flagged only" is active
+    });
+  }
+
   row.querySelector('.del-btn').addEventListener('click', () => deleteVar(v));
 
   // Focusing any field in this row → tell teammates I'm editing it (immediate,
@@ -2377,10 +2420,13 @@ function wireOptRow(v, el, opt) {
 }
 
 // ─── Build JSON (export shape) ─────────────────────────────────────────────────
-function buildJson() {
+function buildJson(flaggedOnly) {
   // Reuse the shared exporter so client and server agree on the wire shape
   // (omits empty category, coerces numbers, keeps type_config only for select).
-  return vars.map(v => V.toExport(dataOf(v)));
+  // toExport() never emits `flag`, so a flagged-only export is still clean JSON.
+  return vars
+    .filter(v => !flaggedOnly || v.flag)
+    .map(v => V.toExport(dataOf(v)));
 }
 
 // ─── Persistence: per-variable save to the shared server ─────────────────────────
@@ -2530,6 +2576,7 @@ const view = {
   category: '',         // exact category; '' = all
   editableOnly: false,
   dupesOnly: false,
+  flaggedOnly: false,   // show only variables flagged as picks
 };
 
 function loadView() {
@@ -2549,6 +2596,7 @@ function matchesFilters(v) {
   if (view.types.length && !view.types.includes(v.type)) return false;
   if (view.category && v.category !== view.category) return false;
   if (view.editableOnly && !v.is_overridable) return false;
+  if (view.flaggedOnly && !v.flag) return false;
   if (view.search) {
     const q = view.search.toLowerCase();
     const hay = [v.display_name, v.id, String(v.default_value), v.category]
@@ -2637,6 +2685,8 @@ function syncViewControls(visibleCount) {
   if (ed) ed.classList.toggle('active', view.editableOnly);
   const du = document.getElementById('f-dupes');
   if (du) du.classList.toggle('active', view.dupesOnly);
+  const fl = document.getElementById('f-flagged');
+  if (fl) fl.classList.toggle('active', view.flaggedOnly);
   // Category select.
   const cat = document.getElementById('f-category');
   if (cat) cat.classList.toggle('active', !!view.category);
@@ -2644,7 +2694,7 @@ function syncViewControls(visibleCount) {
   const clr = document.getElementById('fs-clear');
   if (clr) clr.style.display = view.search ? '' : 'none';
   // Count tag reflects filtered count when a filter is active.
-  const active = view.search || view.types.length || view.category || view.editableOnly || view.dupesOnly;
+  const active = view.search || view.types.length || view.category || view.editableOnly || view.dupesOnly || view.flaggedOnly;
   const tag = document.getElementById('count-tag');
   if (tag) {
     tag.textContent = active
@@ -2681,7 +2731,7 @@ function setSort(key) {
 // ─── Column layout (session-only) ──────────────────────────────────────────────
 // Widths live as --w-* CSS vars on .table-panel so header + rows reflow in sync
 // and survive innerHTML re-renders. Reset to defaults on reload (no persistence).
-const DEFAULT_COL_W = { type: 72, id: 180, display: 200, default: 150,
+const DEFAULT_COL_W = { flag: 38, type: 72, id: 180, display: 200, default: 150,
                         category: 110, override: 50, actions: 96 };
 const MIN_COL_W = 40;
 const MAX_AUTOFIT_W = 480;
@@ -2830,7 +2880,7 @@ function autoFitColumn(key) {
 function resetFilters() {
   view.sortKey = 'created'; view.sortDir = 'desc';
   view.search = ''; view.types = []; view.category = '';
-  view.editableOnly = false; view.dupesOnly = false;
+  view.editableOnly = false; view.dupesOnly = false; view.flaggedOnly = false;
   const s = document.getElementById('f-search'); if (s) s.value = '';
   const c = document.getElementById('f-category'); if (c) c.value = '';
   saveView();
@@ -2872,6 +2922,8 @@ function wireViewControls() {
   if (ed) ed.addEventListener('click', () => { view.editableOnly = !view.editableOnly; saveView(); applyView(); });
   const du = document.getElementById('f-dupes');
   if (du) du.addEventListener('click', () => { view.dupesOnly = !view.dupesOnly; saveView(); applyView(); });
+  const fl = document.getElementById('f-flagged');
+  if (fl) fl.addEventListener('click', () => { view.flaggedOnly = !view.flaggedOnly; saveView(); applyView(); update(); });
 }
 
 /*
@@ -3163,7 +3215,7 @@ async function poll() {
 
 // ─── Update preview + stats ───────────────────────────────────────────────────
 function update() {
-  const data = buildJson();
+  const data = buildJson(view.flaggedOnly);
   const n = data.length;
 
   document.getElementById('dl-btn').disabled = n === 0;
@@ -3265,16 +3317,16 @@ async function clearAll() {
 }
 
 function downloadJson() {
-  const payload = { custom: buildJson() };
+  const payload = { custom: buildJson(view.flaggedOnly) };
   const json = JSON.stringify(payload, null, 2);
   const a = document.createElement('a');
   a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
-  a.download = 'variables.json';
+  a.download = view.flaggedOnly ? 'variables-flagged.json' : 'variables.json';
   a.click();
 }
 
 function copyJson() {
-  navigator.clipboard.writeText(JSON.stringify({ custom: buildJson() }, null, 2)).then(() => {
+  navigator.clipboard.writeText(JSON.stringify({ custom: buildJson(view.flaggedOnly) }, null, 2)).then(() => {
     const btn = document.getElementById('copy-btn');
     const prev = btn.textContent;
     btn.textContent = '✓ Copied';

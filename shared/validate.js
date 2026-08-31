@@ -81,6 +81,10 @@
       is_overridable: src.is_overridable === undefined ? true : Boolean(src.is_overridable),
       type,
       category: src.category == null ? '' : String(src.category),
+      // editor-side "pick" marker: persisted to the store and synced between
+      // collaborators, but deliberately omitted from toExport() so it never
+      // leaks into the generated variable JSON.
+      flag: src.flag === true,
     };
 
     if (type === 'select') {
