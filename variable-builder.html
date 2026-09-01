@@ -2341,9 +2341,23 @@ function wireRow(v, row) {
 // Mark a variable edited: update preview + validation now, persist (debounced).
 function touch(v) {
   v._dirty = true;
-  update();
-  scheduleSave(v);
+  scheduleUpdate();      // debounced: the heavy preview/stats repaint waits until
+  scheduleSave(v);       // you pause, so typing itself never triggers a redraw.
 }
+
+// The preview + stats repaint (update()) is expensive — it re-stringifies and
+// re-highlights the whole JSON and re-scans every row. Running it on each
+// keystroke caused a visible flicker while typing. Coalesce rapid edits into a
+// single repaint shortly after the user stops. Anything that needs an immediate,
+// synchronous refresh (initial render, reconcile, filter toggles) still calls
+// update() directly.
+let _updateTimer = null;
+const UPDATE_DEBOUNCE = 200;
+function scheduleUpdate() {
+  clearTimeout(_updateTimer);
+  _updateTimer = setTimeout(() => { _updateTimer = null; update(); }, UPDATE_DEBOUNCE);
+}
+
 
 // ─── Select options ───────────────────────────────────────────────────────────
 function selectExtraHTML(v) {
@@ -2726,13 +2740,21 @@ function refreshCategoryOptions() {
   if (!sel) return;
   const cats = [...new Set(vars.map(v => v.category).filter(Boolean))].sort(
     (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  // Skip the innerHTML rebuild when the option set is unchanged — otherwise every
+  // keystroke would blow away and recreate the <option>s (flicker + lost dropdown
+  // state). Only touch the DOM when the category list actually changed.
+  const sig = cats.join(' ');
+  if (sig !== _lastCatSig) {
+    _lastCatSig = sig;
+    sel.innerHTML = '<option value="">All categories</option>' +
+      cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  }
   const current = view.category;
-  sel.innerHTML = '<option value="">All categories</option>' +
-    cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   // Restore selection if it still exists; otherwise clear the filter.
   if (current && cats.includes(current)) sel.value = current;
   else if (current) { view.category = ''; saveView(); }
 }
+let _lastCatSig = null;
 
 function setSort(key) {
   if (view.sortKey === key) {
@@ -3245,11 +3267,19 @@ function update() {
   syncViewControls(countVisible());   // owns count-tag (filtered-aware), arrows, chips
 
   if (n === 0) {
-    document.getElementById('json-output').innerHTML = '<span style="color:var(--muted)">// empty</span>';
+    const empty = '<span style="color:var(--muted)">// empty</span>';
+    if (_lastPreviewJson !== '') { document.getElementById('json-output').innerHTML = empty; _lastPreviewJson = ''; }
     return;
   }
-  document.getElementById('json-output').innerHTML = highlight(JSON.stringify({ custom: data }, null, 2));
+  const json = JSON.stringify({ custom: data }, null, 2);
+  // Only rewrite (and re-highlight) the preview when the JSON actually changed —
+  // a poll tick or an edit that doesn't alter exported shape shouldn't repaint it.
+  if (json !== _lastPreviewJson) {
+    document.getElementById('json-output').innerHTML = highlight(json);
+    _lastPreviewJson = json;
+  }
 }
+let _lastPreviewJson = null;
 
 // How many variables currently pass the filters (focused row always counts).
 function countVisible() {
