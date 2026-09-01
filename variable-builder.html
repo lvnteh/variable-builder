@@ -2619,12 +2619,21 @@ function compareVars(a, b) {
 }
 
 // Apply the current view: order visible rows, hide filtered-out ones. Operates
-// purely on existing DOM nodes; safe to call any time without losing focus.
+// purely on existing DOM nodes. Moving a node with container.appendChild blurs
+// it if it's the focused field, so we capture the active element + caret and
+// restore them after reordering — otherwise a poll-driven reconcile that runs
+// while you're typing would eject your cursor and drop the next keystrokes.
 function applyView() {
   const dupIds = duplicateIdSet();
   const focusedUid = focusedRowUid();
   const container = document.getElementById('rows-container');
   if (!container) return;
+
+  // Remember focus + selection so a DOM move doesn't steal the caret mid-type.
+  const activeEl = document.activeElement;
+  const activeInRows = activeEl && activeEl.closest && activeEl.closest('#rows-container');
+  const selStart = activeInRows && 'selectionStart' in activeEl ? activeEl.selectionStart : null;
+  const selEnd   = activeInRows && 'selectionEnd'   in activeEl ? activeEl.selectionEnd   : null;
 
   const ordered = vars.slice().sort(compareVars);
   let visible = 0;
@@ -2644,6 +2653,14 @@ function applyView() {
       visible++;
     }
   });
+
+  // Restore focus + caret if the reorder blurred the field being edited.
+  if (activeInRows && document.activeElement !== activeEl && document.contains(activeEl)) {
+    activeEl.focus();
+    if (selStart != null) {
+      try { activeEl.setSelectionRange(selStart, selEnd); } catch {}
+    }
+  }
 
   // No-match state when filters hide everything (but there ARE variables).
   const nomatch = document.getElementById('nomatch-state');
