@@ -2332,10 +2332,22 @@ function wireRow(v, row) {
 
   row.querySelector('.del-btn').addEventListener('click', () => deleteVar(v));
 
+  // Save on ENTER: pressing Enter in any field commits the variable now instead
+  // of waiting out the debounce. Focus stays put so the user can keep going.
+  row.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.target.matches('input')) {
+      e.preventDefault();     // no implicit form submit / newline
+      flushSave(v);
+    }
+  });
+
   // Focusing any field in this row → tell teammates I'm editing it (immediate,
   // out-of-band push). Blur pushes too so my "editing" flag clears when I leave.
   row.addEventListener('focusin', pushPresence);
-  row.addEventListener('focusout', pushPresence);
+  // Leaving a field (to another column, another row, or off the row entirely)
+  // also commits any pending edit immediately — "exit a column, it's saved" —
+  // so there's never a need to reload the page to persist a change.
+  row.addEventListener('focusout', () => { pushPresence(); flushSave(v); });
 }
 
 // Mark a variable edited: update preview + validation now, persist (debounced).
@@ -2411,6 +2423,17 @@ function wireExtra(v, extra) {
     touch(v);
   });
 
+  // Options live in this separate `extra` panel (a sibling of the row), so the
+  // row's Enter/leave-to-save handlers don't reach them — wire the same commit
+  // triggers here: Enter or leaving an option field persists the variable now.
+  extra.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.target.matches('input')) {
+      e.preventDefault();
+      flushSave(v);
+    }
+  });
+  extra.addEventListener('focusout', () => flushSave(v));
+
   const opts = v.type_config.options;
   extra.querySelectorAll('.opt-row').forEach((el, i) => wireOptRow(v, el, opts[i]));
 }
@@ -2447,6 +2470,20 @@ function buildJson(flaggedOnly) {
 function scheduleSave(v) {
   clearTimeout(saveTimers[v.uid]);
   saveTimers[v.uid] = setTimeout(() => saveVar(v), SAVE_DEBOUNCE);
+}
+
+// Commit a pending edit to the server NOW instead of waiting out the debounce.
+// Wired to Enter and to leaving a field (see wireRow/wireExtra) so a variable —
+// or any of its options/attributes — persists the instant the user signals
+// they're done, with no need to pause or reload the page to confirm the save.
+// A no-op if the row is clean or a save is already in flight (the in-flight
+// save, or the timer any later keystroke re-armed, covers the newest value).
+function flushSave(v) {
+  if (saveTimers[v.uid] !== undefined) {
+    clearTimeout(saveTimers[v.uid]);
+    delete saveTimers[v.uid];
+  }
+  if (v._dirty && !v._saving) saveVar(v);
 }
 
 // A variable is "busy" (must not be overwritten by an incoming poll) if it has
