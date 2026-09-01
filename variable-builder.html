@@ -1746,9 +1746,12 @@ function renderPresenceCluster() {
     const MAX = 5;
     const shown = others.slice(0, MAX);
     const extra = others.length - shown.length;
-    cluster.innerHTML =
+    const html =
       shown.map(p => avatarHTML(p.name, 'sm', `${p.name}${p.editingUid ? ' — editing' : ''}`)).join('') +
       (extra > 0 ? `<span class="avatar sm more" title="${extra} more">+${extra}</span>` : '');
+    // Skip the write when nothing changed — identical rewrites on every poll
+    // repaint the header cluster needlessly (contributes to the typing flicker).
+    if (cluster.innerHTML !== html) cluster.innerHTML = html;
     cluster.style.display = others.length ? 'flex' : 'none';
   }
   const label = document.getElementById('presence-count');
@@ -1775,9 +1778,12 @@ function renderLiveEditors() {
     const names = editingByRow.get(uid);
     row.classList.toggle('being-edited', !!names);
     if (slot) {
-      slot.innerHTML = names
+      const html = names
         ? names.slice(0, 2).map(n => avatarHTML(n, 'live', `${n} is editing…`)).join('')
         : '';
+      // Only write when the content actually changes. Rewriting identical HTML on
+      // every 4s poll forced needless repaints — a source of the typing flicker.
+      if (slot.innerHTML !== html) slot.innerHTML = html;
     }
   });
 }
@@ -2332,12 +2338,13 @@ function wireRow(v, row) {
 
   row.querySelector('.del-btn').addEventListener('click', () => deleteVar(v));
 
-  // Save on ENTER: pressing Enter in any field commits the variable now instead
-  // of waiting out the debounce. Focus stays put so the user can keep going.
+  // Save on ENTER: pressing Enter in any field commits the variable and exits
+  // the column (blurs the field). The blur fires focusout below, which flushes
+  // the pending save — so Enter both persists and leaves editing, as expected.
   row.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.target.matches('input')) {
       e.preventDefault();     // no implicit form submit / newline
-      flushSave(v);
+      e.target.blur();        // exit the column; focusout commits the save
     }
   });
 
@@ -2425,11 +2432,11 @@ function wireExtra(v, extra) {
 
   // Options live in this separate `extra` panel (a sibling of the row), so the
   // row's Enter/leave-to-save handlers don't reach them — wire the same commit
-  // triggers here: Enter or leaving an option field persists the variable now.
+  // triggers here: Enter exits the option field (blur → focusout flushes save).
   extra.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.target.matches('input')) {
       e.preventDefault();
-      flushSave(v);
+      e.target.blur();
     }
   });
   extra.addEventListener('focusout', () => flushSave(v));
@@ -2689,6 +2696,12 @@ function applyView() {
   const ordered = vars.slice().sort(compareVars);
   let visible = 0;
 
+  // Walk the desired order and only touch the DOM when a node is actually out of
+  // place. appendChild on an already-correct node still detaches+reinserts it —
+  // forcing a reflow — so doing it for every row on every poll caused a periodic
+  // flicker. `cursor` tracks where the next visible node should sit; we advance
+  // it as nodes are found in position and only move the ones that drifted.
+  let cursor = container.firstChild;
   ordered.forEach(v => {
     const row = document.getElementById(`row-${v.uid}`);
     if (!row) return;
@@ -2699,8 +2712,13 @@ function applyView() {
     const ex = document.getElementById(`extra-${v.uid}`);
     if (ex) ex.classList.toggle('filtered-out', !show);
     if (show) {
-      container.appendChild(row);                // move into sorted position
-      if (ex) container.appendChild(ex);
+      // Move only if `row` isn't already the next node in sequence.
+      if (cursor !== row) container.insertBefore(row, cursor);
+      else cursor = cursor.nextSibling;
+      if (ex) {
+        if (cursor !== ex) container.insertBefore(ex, cursor);
+        else cursor = cursor.nextSibling;
+      }
       visible++;
     }
   });
