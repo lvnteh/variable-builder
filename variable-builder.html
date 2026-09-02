@@ -2697,7 +2697,7 @@ async function loadFromServer() {
 // engine — a background poll or your own typing is never disrupted by a sort.
 const view = {
   sortKey: 'created',   // created | display_name | id | type | default_value | category | is_overridable
-  sortDir: 'asc',       // asc | desc  (for 'created', asc = oldest first)
+  sortDir: 'desc',      // asc | desc  (for 'created', desc = newest first — the default)
   search: '',
   types: [],            // subset of the 6 types; empty = all
   category: '',         // exact category; '' = all
