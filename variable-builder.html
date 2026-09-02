@@ -465,7 +465,7 @@ header {
   --w-default: 150px;
   --w-category: 110px;
   --w-override: 50px;
-  --w-actions: 96px;
+  --w-actions: 124px;
   overflow-y: auto;
   overflow-x: auto;
   background: var(--surface);
@@ -863,6 +863,26 @@ header {
 }
 
 .del-btn:hover { color: var(--danger); background: #fdf0ef; }
+
+/* Duplicate btn — mirrors .del-btn's transparent 24px-square footprint, with an
+   accent (not danger) hover since it's a create action, not a destroy one. */
+.dup-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 4px;
+  border-radius: 2px;
+  transition: color 0.1s, background 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+.dup-btn:hover { color: var(--accent); background: var(--accent-bg); }
 
 /* Flag (pick) toggle — first column. Outline star when off, filled gold when on.
    Mirrors .del-btn's transparent 24px-square footprint. */
@@ -1876,6 +1896,52 @@ async function addVar(type) {
   if (displayInput) displayInput.focus();
 }
 
+// Duplicate an existing variable: create an exact copy (type, value, category,
+// override, flag, and select options) so the user can tweak it further. The id
+// gets a "_copy" suffix made unique against the current set — an identical id
+// would flag both rows as duplicate-id errors, defeating the point. The new row
+// is placed right after the source (created order) and focused for editing.
+async function duplicateVar(v) {
+  if (currentSetId == null) return;
+  const src = dataOf(v);                       // exact persisted fields (no UI flags)
+  const existingIds = new Set(vars.map(x => x.id).filter(Boolean));
+  let baseId = src.id ? `${src.id}_copy` : '';
+  let newId = baseId, n = 2;
+  while (newId && existingIds.has(newId)) newId = `${baseId}_${n++}`;
+
+  const raw = {
+    id: newId,
+    display_name: src.display_name,
+    default_value: src.default_value,
+    is_overridable: src.is_overridable,
+    type: src.type,
+    category: src.category,
+    flag: src.flag,
+    // Deep-copy select options so edits to the copy don't mutate the source.
+    type_config: src.type === 'select'
+      ? { options: (v.type_config.options || []).map(o => ({ ...o })) }
+      : { options: [] },
+  };
+
+  setSync('saving', 'saving…');
+  const res = await api('POST', `/api/sets/${currentSetId}/variables`, raw);
+  if (res.status === 404) { onSetDeleted(); return; }
+  if (!res.ok) { setSync('offline', 'save failed'); return; }
+
+  const copy = toRecord(res.json.variable);
+  vars.push(copy);
+  renderRow(copy);
+  showHead();
+  update();
+  setSync('synced', 'saved');
+  applyView();       // place the copy in the current sort/filter
+  flashRow(copy.uid);
+  // Focus AFTER applyView (it reparents the row, which would blur an early focus).
+  const row = document.getElementById(`row-${copy.uid}`);
+  const displayInput = row && row.querySelector('.f-display');
+  if (displayInput) { displayInput.focus(); displayInput.select(); }
+}
+
 // Turn a server record into a client record with UI flags.
 function toRecord(rec) {
   const type_config = (rec.type === 'select' && rec.type_config && Array.isArray(rec.type_config.options))
@@ -2210,6 +2276,7 @@ function rowHTML(v) {
     <span class="col-actions" style="display:flex;align-items:center;gap:2px;">
       <span class="live-slot"></span>
       <span class="attr-slot">${v._meta && v._meta.updated_by ? avatarHTML(v._meta.updated_by, 'attr', attributionTitle(v._meta)) : ''}</span>
+      <button class="dup-btn" title="Duplicate this variable">⧉</button>
       <button class="del-btn" title="Remove">✕</button>
     </span>
   `;
@@ -2336,6 +2403,8 @@ function wireRow(v, row) {
     });
   }
 
+  const dupBtn = row.querySelector('.dup-btn');
+  if (dupBtn) dupBtn.addEventListener('click', () => duplicateVar(v));
   row.querySelector('.del-btn').addEventListener('click', () => deleteVar(v));
 
   // Save on ENTER: pressing Enter in any field commits the variable and exits
@@ -2826,7 +2895,7 @@ function setSort(key) {
 // Widths live as --w-* CSS vars on .table-panel so header + rows reflow in sync
 // and survive innerHTML re-renders. Reset to defaults on reload (no persistence).
 const DEFAULT_COL_W = { flag: 38, type: 72, id: 180, display: 200, default: 150,
-                        category: 110, override: 50, actions: 96 };
+                        category: 110, override: 50, actions: 124 };
 const MIN_COL_W = 40;
 const MAX_AUTOFIT_W = 480;
 let colW = { ...DEFAULT_COL_W };
